@@ -22,45 +22,45 @@ private cairoError(code: int) -> CairoError = CairoError(code, statusMessage(cod
 
 // The layout of an image surface's pixels.
 data Format
-    // 32 bits a pixel: alpha in the upper 8, then red, green and blue, premultiplied by alpha.
-    Argb32
-    // 32 bits a pixel: the upper 8 unused, then red, green and blue.
-    Rgb24
-    // 8 bits a pixel of alpha alone.
-    A8
-    // 1 bit a pixel of alpha alone, packed into 32-bit words.
-    A1
-    // 16 bits a pixel: 5 of red, 6 of green and 5 of blue.
-    Rgb16565
-    // 32 bits a pixel: the upper 2 unused, then 10 each of red, green and blue.
-    Rgb30
-    // Three 32-bit floats a pixel: red, green and blue.
-    Rgb96f
-    // Four 32-bit floats a pixel: red, green, blue and alpha.
-    Rgba128f
+  // 32 bits a pixel: alpha in the upper 8, then red, green and blue, premultiplied by alpha.
+  Argb32
+  // 32 bits a pixel: the upper 8 unused, then red, green and blue.
+  Rgb24
+  // 8 bits a pixel of alpha alone.
+  A8
+  // 1 bit a pixel of alpha alone, packed into 32-bit words.
+  A1
+  // 16 bits a pixel: 5 of red, 6 of green and 5 of blue.
+  Rgb16565
+  // 32 bits a pixel: the upper 2 unused, then 10 each of red, green and blue.
+  Rgb30
+  // Three 32-bit floats a pixel: red, green and blue.
+  Rgb96f
+  // Four 32-bit floats a pixel: red, green, blue and alpha.
+  Rgba128f
 
 // Cairo's `cairo_format_t` value for a format.
 private formatCode(format: Format) -> int = format match
-    Argb32 -> 0
-    Rgb24 -> 1
-    A8 -> 2
-    A1 -> 3
-    Rgb16565 -> 4
-    Rgb30 -> 5
-    Rgb96f -> 6
-    Rgba128f -> 7
+  Argb32 -> 0
+  Rgb24 -> 1
+  A8 -> 2
+  A1 -> 3
+  Rgb16565 -> 4
+  Rgb30 -> 5
+  Rgb96f -> 6
+  Rgba128f -> 7
 
 // The format of a `cairo_format_t` value, or `None` for `CAIRO_FORMAT_INVALID`.
 private formatOf(code: int) -> Option[Format] = code match
-    0 -> Some(Argb32)
-    1 -> Some(Rgb24)
-    2 -> Some(A8)
-    3 -> Some(A1)
-    4 -> Some(Rgb16565)
-    5 -> Some(Rgb30)
-    6 -> Some(Rgb96f)
-    7 -> Some(Rgba128f)
-    _ -> None
+  0 -> Some(Argb32)
+  1 -> Some(Rgb24)
+  2 -> Some(A8)
+  3 -> Some(A1)
+  4 -> Some(Rgb16565)
+  5 -> Some(Rgb30)
+  6 -> Some(Rgb96f)
+  7 -> Some(Rgba128f)
+  _ -> None
 
 @c("int cairo_format_stride_for_width(cairo_format_t format, int width)")
 private strideRaw(format: int, width: int) -> int
@@ -69,5 +69,5 @@ private strideRaw(format: int, width: int) -> int
 // Cairo lays it out: each row rounded up to a multiple of 4 bytes. `None` where the width is negative
 // or too wide for a row's length to be an `int`.
 formatStrideForWidth(format: Format, width: int) -> Option[int] =
-    val stride = strideRaw(formatCode(format), width)
-    if stride < 0 then None else Some(stride)
+  val stride = strideRaw(formatCode(format), width)
+  if stride < 0 then None else Some(stride)

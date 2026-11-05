@@ -1,23 +1,36 @@
 module tests
 
 // The library's version, its error descriptions and the row stride of every pixel format.
-import dev.avinlang.cairo.{A1, A8, Argb32, Format, Rgb16565, Rgb24, Rgb30, Rgb96f, Rgba128f, formatStrideForWidth, version, versionString}
+import dev.avinlang.cairo.{
+  A1,
+  A8,
+  Argb32,
+  Format,
+  Rgb16565,
+  Rgb24,
+  Rgb30,
+  Rgb96f,
+  Rgba128f,
+  formatStrideForWidth,
+  version,
+  versionString
+}
 
 @test("the version is 1.18 or later, and its number and its text agree")
 versions()
-    val v = version()
-    assert(v >= 11800)
-    assertEq(versionString(), s"${v / 10000}.${v / 100 % 100}.${v % 100}")
+  val v = version()
+  assert(v >= 11800)
+  assertEq(versionString(), s"${v / 10000}.${v / 100 % 100}.${v % 100}")
 
 @test("each format's stride is its row of pixels rounded up to a multiple of four bytes")
 strides()
-    assertEq(formatStrideForWidth(Argb32, 120), Some(480))
-    assertEq(formatStrideForWidth(Rgb24, 3), Some(12))
-    assertEq(formatStrideForWidth(A8, 1), Some(4))
-    assertEq(formatStrideForWidth(A8, 5), Some(8))
-    assertEq(formatStrideForWidth(A1, 1), Some(4))
-    assertEq(formatStrideForWidth(A1, 33), Some(8))
-    assertEq(formatStrideForWidth(Rgb16565, 3), Some(8))
-    assertEq(formatStrideForWidth(Rgb30, 2), Some(8))
-    assertEq(formatStrideForWidth(Rgb96f, 1), Some(12))
-    assertEq(formatStrideForWidth(Rgba128f, 1), Some(16))
+  assertEq(formatStrideForWidth(Argb32, 120), Some(480))
+  assertEq(formatStrideForWidth(Rgb24, 3), Some(12))
+  assertEq(formatStrideForWidth(A8, 1), Some(4))
+  assertEq(formatStrideForWidth(A8, 5), Some(8))
+  assertEq(formatStrideForWidth(A1, 1), Some(4))
+  assertEq(formatStrideForWidth(A1, 33), Some(8))
+  assertEq(formatStrideForWidth(Rgb16565, 3), Some(8))
+  assertEq(formatStrideForWidth(Rgb30, 2), Some(8))
+  assertEq(formatStrideForWidth(Rgb96f, 1), Some(12))
+  assertEq(formatStrideForWidth(Rgba128f, 1), Some(16))

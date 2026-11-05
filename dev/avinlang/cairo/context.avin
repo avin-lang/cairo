@@ -11,166 +11,168 @@ module dev.avinlang.cairo
 // while the context does, whatever becomes of the surface's own handle.
 @c(type: "cairo_t *", release: "cairo_destroy", retain: "cairo_reference")
 class Context
-    @c("cairo_status_t cairo_status(cairo_t *self)")
-    private statusRaw() -> Result[unit, int]
+  @c("cairo_status_t cairo_status(cairo_t *self)")
+  private statusRaw() -> Result[unit, int]
 
-    // `Ok` while the context is usable, and the failure it holds otherwise.
-    status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
+  // `Ok` while the context is usable, and the failure it holds otherwise.
+  status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
 
-    // How many references Cairo counts on the context.
-    @c("unsigned int cairo_get_reference_count(cairo_t *self)")
-    referenceCount() -> long
+  // How many references Cairo counts on the context.
+  @c("unsigned int cairo_get_reference_count(cairo_t *self)")
+  referenceCount() -> long
 
-    // The surface the context draws on: a handle of its own on it.
-    @c("cairo_surface_t *cairo_get_target(cairo_t *self)", borrowed)
-    target() -> Surface
+  // The surface the context draws on: a handle of its own on it.
+  @c("cairo_surface_t *cairo_get_target(cairo_t *self)", borrowed)
+  target() -> Surface
 
-    // Pushes the context's state, its source, line width, transform and the rest, but not its path.
-    @c("void cairo_save(cairo_t *self)")
-    save()
+  // Pushes the context's state, its source, line width, transform and the rest, but not its path.
+  @c("void cairo_save(cairo_t *self)")
+  save()
 
-    // Pops the state the matching `save` pushed. A `restore` with no `save` is a failure the context
-    // keeps.
-    @c("void cairo_restore(cairo_t *self)")
-    restore()
+  // Pops the state the matching `save` pushed. A `restore` with no `save` is a failure the context
+  // keeps.
+  @c("void cairo_restore(cairo_t *self)")
+  restore()
 
-    // Paints with an opaque colour from now on; each component from 0 to 1.
-    @c("void cairo_set_source_rgb(cairo_t *self, double red, double green, double blue)")
-    setSourceRgb(red: real, green: real, blue: real)
+  // Paints with an opaque colour from now on; each component from 0 to 1.
+  @c("void cairo_set_source_rgb(cairo_t *self, double red, double green, double blue)")
+  setSourceRgb(red: real, green: real, blue: real)
 
-    // Paints with a colour and an alpha from now on; each from 0 to 1.
-    @c("void cairo_set_source_rgba(cairo_t *self, double red, double green, double blue, double alpha)")
-    setSourceRgba(red: real, green: real, blue: real, alpha: real)
+  // Paints with a colour and an alpha from now on; each from 0 to 1.
+  @c("void cairo_set_source_rgba(cairo_t *self, double red, double green, double blue, double alpha)")
+  setSourceRgba(red: real, green: real, blue: real, alpha: real)
 
-    // Paints with `pattern` from now on, which the context holds a reference to.
-    @c("void cairo_set_source(cairo_t *self, cairo_pattern_t *source)")
-    setSource(pattern: Pattern)
+  // Paints with `pattern` from now on, which the context holds a reference to.
+  @c("void cairo_set_source(cairo_t *self, cairo_pattern_t *source)")
+  setSource(pattern: Pattern)
 
-    // The pattern the context paints with: a handle of its own on it.
-    @c("cairo_pattern_t *cairo_get_source(cairo_t *self)", borrowed)
-    source() -> Pattern
+  // The pattern the context paints with: a handle of its own on it.
+  @c("cairo_pattern_t *cairo_get_source(cairo_t *self)", borrowed)
+  source() -> Pattern
 
-    // The width `stroke` draws lines with, in user units; 2 to begin with.
-    @c("void cairo_set_line_width(cairo_t *self, double width)")
-    setLineWidth(width: real)
+  // The width `stroke` draws lines with, in user units; 2 to begin with.
+  @c("void cairo_set_line_width(cairo_t *self, double width)")
+  setLineWidth(width: real)
 
-    @c("double cairo_get_line_width(cairo_t *self)")
-    lineWidth() -> real
+  @c("double cairo_get_line_width(cairo_t *self)")
+  lineWidth() -> real
 
-    // Empties the path.
-    @c("void cairo_new_path(cairo_t *self)")
-    newPath()
+  // Empties the path.
+  @c("void cairo_new_path(cairo_t *self)")
+  newPath()
 
-    // Begins a new piece of the path at (`x`, `y`).
-    @c("void cairo_move_to(cairo_t *self, double x, double y)")
-    moveTo(x: real, y: real)
+  // Begins a new piece of the path at (`x`, `y`).
+  @c("void cairo_move_to(cairo_t *self, double x, double y)")
+  moveTo(x: real, y: real)
 
-    // Adds a line from the current point to (`x`, `y`).
-    @c("void cairo_line_to(cairo_t *self, double x, double y)")
-    lineTo(x: real, y: real)
+  // Adds a line from the current point to (`x`, `y`).
+  @c("void cairo_line_to(cairo_t *self, double x, double y)")
+  lineTo(x: real, y: real)
 
-    // Adds a closed rectangle, its corner at (`x`, `y`).
-    @c("void cairo_rectangle(cairo_t *self, double x, double y, double width, double height)")
-    rectangle(x: real, y: real, width: real, height: real)
+  // Adds a closed rectangle, its corner at (`x`, `y`).
+  @c("void cairo_rectangle(cairo_t *self, double x, double y, double width, double height)")
+  rectangle(x: real, y: real, width: real, height: real)
 
-    // Adds an arc of the circle about (`xc`, `yc`) from `angle1` to `angle2`, in radians, turning
-    // from the positive x axis towards the positive y axis; joined to the current point by a line.
-    @c("void cairo_arc(cairo_t *self, double xc, double yc, double radius, double angle1, double angle2)")
-    arc(xc: real, yc: real, radius: real, angle1: real, angle2: real)
+  // Adds an arc of the circle about (`xc`, `yc`) from `angle1` to `angle2`, in radians, turning
+  // from the positive x axis towards the positive y axis; joined to the current point by a line.
+  @c("void cairo_arc(cairo_t *self, double xc, double yc, double radius, double angle1, double angle2)")
+  arc(xc: real, yc: real, radius: real, angle1: real, angle2: real)
 
-    // Adds a line back to where the current piece of the path began, and joins the two ends.
-    @c("void cairo_close_path(cairo_t *self)")
-    closePath()
+  // Adds a line back to where the current piece of the path began, and joins the two ends.
+  @c("void cairo_close_path(cairo_t *self)")
+  closePath()
 
-    // Whether the path has a current point: something was added since it was last emptied.
-    @c("cairo_bool_t cairo_has_current_point(cairo_t *self)")
-    hasCurrentPoint() -> bool
+  // Whether the path has a current point: something was added since it was last emptied.
+  @c("cairo_bool_t cairo_has_current_point(cairo_t *self)")
+  hasCurrentPoint() -> bool
 
-    // Whether (`x`, `y`) is inside the area `fill` would paint.
-    @c("cairo_bool_t cairo_in_fill(cairo_t *self, double x, double y)")
-    inFill(x: real, y: real) -> bool
+  // Whether (`x`, `y`) is inside the area `fill` would paint.
+  @c("cairo_bool_t cairo_in_fill(cairo_t *self, double x, double y)")
+  inFill(x: real, y: real) -> bool
 
-    // Whether (`x`, `y`) is inside the area `stroke` would paint.
-    @c("cairo_bool_t cairo_in_stroke(cairo_t *self, double x, double y)")
-    inStroke(x: real, y: real) -> bool
+  // Whether (`x`, `y`) is inside the area `stroke` would paint.
+  @c("cairo_bool_t cairo_in_stroke(cairo_t *self, double x, double y)")
+  inStroke(x: real, y: real) -> bool
 
-    // Draws the path's lines with the source, at the line width, and empties the path.
-    @c("void cairo_stroke(cairo_t *self)")
-    stroke()
+  // Draws the path's lines with the source, at the line width, and empties the path.
+  @c("void cairo_stroke(cairo_t *self)")
+  stroke()
 
-    // Draws the path's lines as `stroke` does, keeping the path.
-    @c("void cairo_stroke_preserve(cairo_t *self)")
-    strokePreserve()
+  // Draws the path's lines as `stroke` does, keeping the path.
+  @c("void cairo_stroke_preserve(cairo_t *self)")
+  strokePreserve()
 
-    // Paints the inside of the path with the source, and empties the path.
-    @c("void cairo_fill(cairo_t *self)")
-    fill()
+  // Paints the inside of the path with the source, and empties the path.
+  @c("void cairo_fill(cairo_t *self)")
+  fill()
 
-    // Paints the inside of the path as `fill` does, keeping the path.
-    @c("void cairo_fill_preserve(cairo_t *self)")
-    fillPreserve()
+  // Paints the inside of the path as `fill` does, keeping the path.
+  @c("void cairo_fill_preserve(cairo_t *self)")
+  fillPreserve()
 
-    // Paints the source over the whole surface.
-    @c("void cairo_paint(cairo_t *self)")
-    paint()
+  // Paints the source over the whole surface.
+  @c("void cairo_paint(cairo_t *self)")
+  paint()
 
-    // Moves the origin of the user's coordinates to (`tx`, `ty`).
-    @c("void cairo_translate(cairo_t *self, double tx, double ty)")
-    translate(tx: real, ty: real)
+  // Moves the origin of the user's coordinates to (`tx`, `ty`).
+  @c("void cairo_translate(cairo_t *self, double tx, double ty)")
+  translate(tx: real, ty: real)
 
-    // Stretches the user's coordinates by `sx` across and `sy` down. A factor of 0 leaves a transform
-    // that cannot be inverted, a failure the context keeps.
-    @c("void cairo_scale(cairo_t *self, double sx, double sy)")
-    scale(sx: real, sy: real)
+  // Stretches the user's coordinates by `sx` across and `sy` down. A factor of 0 leaves a transform
+  // that cannot be inverted, a failure the context keeps.
+  @c("void cairo_scale(cairo_t *self, double sx, double sy)")
+  scale(sx: real, sy: real)
 
-    // Turns the user's coordinates by `angle` radians, from the positive x axis towards the positive y.
-    @c("void cairo_rotate(cairo_t *self, double angle)")
-    rotate(angle: real)
+  // Turns the user's coordinates by `angle` radians, from the positive x axis towards the positive y.
+  @c("void cairo_rotate(cairo_t *self, double angle)")
+  rotate(angle: real)
 
-    // Ends the page: a PDF surface begins its next, and an image surface keeps what was drawn.
-    @c("void cairo_show_page(cairo_t *self)")
-    showPage()
+  // Ends the page: a PDF surface begins its next, and an image surface keeps what was drawn.
+  @c("void cairo_show_page(cairo_t *self)")
+  showPage()
 
-    // Begins a tag of a PDF document's structure, such as `H1`, `P` or `Document`, with its
-    // attributes; the tags nest, each closed by `tagEnd` with its name.
-    @c("void cairo_tag_begin(cairo_t *self, const char *tag_name, const char *attributes)")
-    tagBegin(name: string, attributes: string = "")
+  // Begins a tag of a PDF document's structure, such as `H1`, `P` or `Document`, with its
+  // attributes; the tags nest, each closed by `tagEnd` with its name.
+  @c("void cairo_tag_begin(cairo_t *self, const char *tag_name, const char *attributes)")
+  tagBegin(name: string, attributes: string = "")
 
-    @c("void cairo_tag_end(cairo_t *self, const char *tag_name)")
-    tagEnd(name: string)
+  @c("void cairo_tag_end(cairo_t *self, const char *tag_name)")
+  tagEnd(name: string)
 
-    @c("void cairo_select_font_face(cairo_t *self, const char *family, cairo_font_slant_t slant, cairo_font_weight_t weight)")
-    private selectFontFaceRaw(family: string, slant: int, weight: int)
+  @c(
+    "void cairo_select_font_face(cairo_t *self, const char *family, cairo_font_slant_t slant, cairo_font_weight_t weight)"
+  )
+  private selectFontFaceRaw(family: string, slant: int, weight: int)
 
-    // Draws text from now on with the font of `family` the system finds, such as `serif` or
-    // `Georgia`, in the slant and weight given.
-    selectFontFace(family: string, slant: FontSlant = Upright, weight: FontWeight = Regular) =
-        selectFontFaceRaw(family, fontSlantCode(slant), fontWeightCode(weight))
+  // Draws text from now on with the font of `family` the system finds, such as `serif` or
+  // `Georgia`, in the slant and weight given.
+  selectFontFace(family: string, slant: FontSlant = Upright, weight: FontWeight = Regular) =
+    selectFontFaceRaw(family, fontSlantCode(slant), fontWeightCode(weight))
 
-    // Draws text `size` user units high from now on.
-    @c("void cairo_set_font_size(cairo_t *self, double size)")
-    setFontSize(size: real)
+  // Draws text `size` user units high from now on.
+  @c("void cairo_set_font_size(cairo_t *self, double size)")
+  setFontSize(size: real)
 
-    // Draws `text` from the current point along its baseline, moving the current point to its end.
-    @c("void cairo_show_text(cairo_t *self, const char *utf8)")
-    showText(text: string)
+  // Draws `text` from the current point along its baseline, moving the current point to its end.
+  @c("void cairo_show_text(cairo_t *self, const char *utf8)")
+  showText(text: string)
 
 // The slant of a font `selectFontFace` asks for.
 data FontSlant
-    Upright
-    Italic
-    Oblique
+  Upright
+  Italic
+  Oblique
 
 private fontSlantCode(slant: FontSlant) -> int = slant match
-    Upright -> 0
-    Italic -> 1
-    Oblique -> 2
+  Upright -> 0
+  Italic -> 1
+  Oblique -> 2
 
 // The weight of a font `selectFontFace` asks for.
 data FontWeight
-    Regular
-    Bold
+  Regular
+  Bold
 
 private fontWeightCode(weight: FontWeight) -> int = weight match
-    Regular -> 0
-    Bold -> 1
+  Regular -> 0
+  Bold -> 1

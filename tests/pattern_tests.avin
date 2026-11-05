@@ -1,0 +1,107 @@
+module tests
+
+// Patterns: solid colours and gradients made, given colour stops, painted with, counted and closed.
+import dev.avinlang.cairo.{Context, linearGradient, radialGradient, solidRgb, solidRgba}
+
+// What painting the whole of an 8 by 8 surface with `paint` leaves: the PNG header's colour type, 2
+// for opaque everywhere and 6 for any transparency.
+private painted(name: string, paint: (Context) -> unit) -> string =
+    val cr = canvas(8, 8)
+    paint(cr)
+    val path = s"${scratch()}/$name.png"
+    made(cr.target().writeToPng(path))
+    pngHeader(path)
+
+@test("every kind of pattern is made usable, its handle the one reference")
+everyKind()
+    for p in [made(solidRgb(1, 0, 0)), made(solidRgba(0, 1, 0, 0.5)), made(linearGradient(0, 0, 10, 0)), made(radialGradient(5, 5, 0, 5, 5, 5))]
+        assertEq(code(p.status()), 0)
+        assertEq(p.referenceCount(), 1)
+
+@test("components and offsets outside 0 to 1 are clamped by Cairo, not failures")
+clamped()
+    val g = made(linearGradient(0, 0, 1, 1))
+    g.addColorStopRgb(-1, 2, -2, 0.5)
+    g.addColorStopRgba(7, 0, 0, 0, 9)
+    assertEq(code(g.status()), 0)
+    assertEq(code(solidRgba(-1, 2, 3, -4)), 0)
+
+@test("a gradient of the same point, or of two equal circles, is made: Cairo paints it as nothing")
+degenerate()
+    assertEq(code(linearGradient(3, 3, 3, 3)), 0)
+    assertEq(code(radialGradient(1, 1, 2, 1, 1, 2)), 0)
+
+@test("a colour stop added to a solid pattern is a failure the pattern keeps")
+stopOnSolid()
+    val p = made(solidRgb(0, 0, 0))
+    p.addColorStopRgb(0, 1, 1, 1)
+    val e = failure(p.status())
+    assertEq(e.code, 14)
+    assertEq(e.message, "the pattern type is not appropriate for the operation")
+    p.addColorStopRgba(1, 1, 1, 1, 1)
+    assertEq(code(p.status()), 14)
+
+@test("a context painting with a pattern in error takes on its failure")
+errorPatternSource()
+    val p = made(solidRgb(0, 0, 0))
+    p.addColorStopRgb(0, 1, 1, 1)
+    val cr = canvas(4, 4)
+    cr.setSource(p)
+    assertEq(code(cr.status()), 14)
+
+@test("opaque gradient stops cover the surface, and a stop with no alpha leaves part of it transparent")
+gradientsPainted()
+    assertEq(painted("linear", cr ->
+        val g = made(linearGradient(0, 0, 8, 0))
+        g.addColorStopRgb(0, 1, 0, 0)
+        g.addColorStopRgb(1, 0, 0, 1)
+        cr.setSource(g)
+        cr.paint()), "8x8 depth 8 colour 2")
+    assertEq(painted("faded", cr ->
+        val g = made(linearGradient(0, 0, 8, 0))
+        g.addColorStopRgba(0, 1, 0, 0, 1)
+        g.addColorStopRgba(1, 1, 0, 0, 0)
+        cr.setSource(g)
+        cr.paint()), "8x8 depth 8 colour 6")
+    assertEq(painted("radial", cr ->
+        val g = made(radialGradient(4, 4, 0, 4, 4, 6))
+        g.addColorStopRgb(0, 1, 1, 1)
+        g.addColorStopRgb(1, 0, 0, 0)
+        cr.setSource(g)
+        cr.paint()), "8x8 depth 8 colour 2")
+    assertEq(painted("stopless", cr ->
+        cr.setSource(made(linearGradient(0, 0, 8, 0)))
+        cr.paint()), "8x8 depth 8 colour 6")
+    assertEq(painted("solid", cr ->
+        cr.setSource(made(solidRgba(0, 0, 1, 1)))
+        cr.paint()), "8x8 depth 8 colour 2")
+
+@test("a context keeps painting with a pattern whose handle was closed, by its own reference")
+patternOutlivesHandle()
+    assertEq(painted("closed-pattern", cr ->
+        val g = made(solidRgb(0, 1, 0))
+        cr.setSource(g)
+        g.close()
+        churn()
+        cr.paint()), "8x8 depth 8 colour 2")
+
+@test("a pattern set on many contexts is referenced by each, and given back as each goes")
+sharedPattern()
+    val g = made(linearGradient(0, 0, 1, 0))
+    val contexts = (0..<10).map(_ -> canvas(2, 2)).toVector()
+    contexts.foreach(cr -> cr.setSource(g))
+    assertEq(g.referenceCount(), 11)
+    contexts.foreach(cr -> cr.close())
+    assertEq(g.referenceCount(), 1)
+
+@test(should_trap: "`Pattern` is closed")
+closedStop()
+    val g = made(linearGradient(0, 0, 1, 0))
+    g.close()
+    g.addColorStopRgb(0, 0, 0, 0)
+
+@test(should_trap: "`Pattern` is closed")
+closedPatternStatus()
+    val g = made(radialGradient(0, 0, 1, 0, 0, 2))
+    g.close()
+    g.status()

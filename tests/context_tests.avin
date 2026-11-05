@@ -347,13 +347,6 @@ finishedSurface()
 // A context whose surface's handle went out of reach as soon as it was made.
 private orphan(width: int, height: int) -> Context = made(made(imageSurface(Argb32, width, height)).context())
 
-// Enough allocation for the collector to run, under stress or not.
-private churn() -> int =
-    var total = 0
-    for i in 0..<2000
-        total += [i, i + 1, i + 2].length()
-    total
-
 @test("a context keeps its surface after the surface's handle is closed, and draws into it")
 keepsClosedSurface()
     val s = made(imageSurface(Argb32, 30, 20))

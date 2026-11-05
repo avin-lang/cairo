@@ -50,7 +50,7 @@ linearGradient(x0: real, y0: real, x1: real, y1: real) -> Result[Pattern, CairoE
 private radialRaw(cx0: real, cy0: real, radius0: real, cx1: real, cy1: real, radius1: real) -> Pattern
 
 // A gradient between the circle about (`cx0`, `cy0`) of `radius0` and the one about (`cx1`, `cy1`) of
-// `radius1`, with no colour stops yet. A negative radius is `Err`.
+// `radius1`, with no colour stops yet.
 radialGradient(cx0: real, cy0: real, radius0: real, cx1: real, cy1: real, radius1: real) -> Result[Pattern, CairoError] =
     patternChecked(radialRaw(cx0, cy0, radius0, cx1, cy1, radius1))
 

@@ -26,6 +26,13 @@ scratch() -> string = fs.createTempDir("avin-cairo").getOrElse(fail("no temporar
 // An ARGB32 image surface of `width` by `height` pixels and a context drawing on it.
 canvas(width: int, height: int) -> Context = made(made(imageSurface(Argb32, width, height)).context())
 
+// Enough allocation for the collector to run, under stress or not: 6000, the elements allocated.
+churn() -> int =
+    var total = 0
+    for i in 0..<2000
+        total += [i, i + 1, i + 2].length()
+    total
+
 // The bytes of the file at `path`.
 bytesOf(path: string) -> Array[byte] = fs.readBytes(path).getOrElse(fail(s"cannot read $path"))
 

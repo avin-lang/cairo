@@ -1,0 +1,52 @@
+module tests
+
+// What the tests share: a directory of their own to write files into, the surfaces and contexts
+// they draw with, and readers of what Cairo wrote.
+import avin.fs
+import dev.avinlang.cairo.{Argb32, CairoError, Context, Surface, imageSurface}
+
+// The value of a result the test expects to succeed.
+made[T](r: Result[T, CairoError]) -> T = r match
+    Ok(v) -> v
+    Err(e) -> fail(s"Cairo failed: $e")
+
+// The failure of a result the test expects to fail.
+failure[T](r: Result[T, CairoError]) -> CairoError = r match
+    Ok(_) -> fail("Cairo succeeded")
+    Err(e) -> e
+
+// The code of a result's failure, or 0 for success: Cairo's own numbering of its statuses.
+code[T](r: Result[T, CairoError]) -> int = r match
+    Ok(_) -> 0
+    Err(e) -> e.code
+
+// A new, empty directory for one test's files.
+scratch() -> string = fs.createTempDir("avin-cairo").getOrElse(fail("no temporary directory"))
+
+// An ARGB32 image surface of `width` by `height` pixels and a context drawing on it.
+canvas(width: int, height: int) -> Context = made(made(imageSurface(Argb32, width, height)).context())
+
+// The bytes of the file at `path`.
+bytesOf(path: string) -> Array[byte] = fs.readBytes(path).getOrElse(fail(s"cannot read $path"))
+
+// The file at `path` as text, any bytes that are not UTF-8 replaced.
+textOf(path: string) -> string = string.fromUtf8Lossy(bytesOf(path))
+
+// The byte at `at` as a number from 0 to 255.
+octet(bytes: Array[byte], at: int) -> int = int(bytes(at))
+
+// The big-endian 32-bit number at `at`.
+word(bytes: Array[byte], at: int) -> int =
+    ((octet(bytes, at) * 256 + octet(bytes, at + 1)) * 256 + octet(bytes, at + 2)) * 256 + octet(bytes, at + 3)
+
+// Whether `bytes` begin with PNG's eight-byte signature.
+isPng(bytes: Array[byte]) -> bool =
+    val signature = [137, 80, 78, 71, 13, 10, 26, 10]
+    bytes.length() >= 8 && (0..<8).forall(i -> octet(bytes, i) == signature(i))
+
+// What a PNG file's header says: its width, height, bit depth and colour type, as one line.
+pngHeader(path: string) -> string =
+    val bytes = bytesOf(path)
+    assert(isPng(bytes))
+    assertEq(string.fromUtf8Lossy(bytes.slice(12, 16)), "IHDR")
+    s"${word(bytes, 16)}x${word(bytes, 20)} depth ${octet(bytes, 24)} colour ${octet(bytes, 25)}"

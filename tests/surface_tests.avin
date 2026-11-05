@@ -1,0 +1,154 @@
+module tests
+
+// Image surfaces: made in every format and at the boundaries of their size, measured, written to PNG
+// files, counted, and closed.
+import avin.fs
+import dev.avinlang.cairo.{A1, A8, Argb32, CairoError, Format, Rgb16565, Rgb24, Rgb30, Rgb96f, Rgba128f, Surface, formatStrideForWidth, imageSurface}
+
+@test("an image surface is made in every format, its size, stride and format read back")
+everyFormat()
+    for f in [Argb32, Rgb24, A8, A1, Rgb16565, Rgb30, Rgb96f, Rgba128f]
+        val s = made(imageSurface(f, 7, 3))
+        assertEq(s.width(), 7)
+        assertEq(s.height(), 3)
+        assertEq(Some(s.stride()), formatStrideForWidth(f, 7))
+        assertEq(s.format(), Some(f))
+        assertEq(code(s.status()), 0)
+
+@test("a surface of no pixels is made, and one of 32767 a side is the widest Cairo allows")
+sizeBoundaries()
+    val empty = made(imageSurface(Argb32, 0, 0))
+    assertEq(empty.width(), 0)
+    assertEq(empty.stride(), 0)
+    val wide = made(imageSurface(A8, 32767, 1))
+    assertEq(wide.width(), 32767)
+    assertEq(wide.stride(), 32768)
+
+@test("a negative size, or one past 32767, is Err with Cairo's code and description, the failed surface closed")
+invalidSizes()
+    val e = failure(imageSurface(Argb32, -1, 10))
+    assertEq(e.code, 32)
+    assertEq(e.message, "invalid value (typically too big) for the size of the input (surface, pattern, etc.)")
+    assertEq(code(imageSurface(Argb32, 10, -1)), 32)
+    assertEq(code(imageSurface(Argb32, 32768, 1)), 32)
+    assertEq(code(imageSurface(Argb32, 1, 32768)), 32)
+    assertEq(code(imageSurface(A1, -2147483648, 2147483647)), 32)
+
+// Cairo writes alpha with colour (type 6), colour alone (2), and alpha alone as 8-bit grey (0),
+// widening A1's single bits.
+@test("writeToPng writes a PNG file whose header gives the surface's size and a colour type for its format")
+pngFiles()
+    val dir = scratch()
+    for (f, colour) in [(Argb32, "depth 8 colour 6"), (Rgb24, "depth 8 colour 2"), (A8, "depth 8 colour 0"), (A1, "depth 8 colour 0"), (Rgb16565, "depth 8 colour 2")]
+        val path = s"$dir/$f.png"
+        made(made(imageSurface(f, 31, 17)).writeToPng(path))
+        assertEq(pngHeader(path), s"31x17 $colour")
+
+@test("writeToPng replaces a file already there")
+pngReplaces()
+    val path = s"${scratch()}/twice.png"
+    made(made(imageSurface(Argb32, 5, 5)).writeToPng(path))
+    made(made(imageSurface(Argb32, 9, 4)).writeToPng(path))
+    assertEq(pngHeader(path), "9x4 depth 8 colour 6")
+
+@test("writeToPng into a directory that does not exist is Err, a write error, and writes nothing")
+pngMissingDirectory()
+    val dir = scratch()
+    val e = failure(made(imageSurface(Argb32, 4, 4)).writeToPng(s"$dir/missing/out.png"))
+    assertEq(e.code, 11)
+    assertEq(e.message, "error while writing to output stream")
+    assert(!fs.exists(s"$dir/missing"))
+
+@test("a path holding a non-ASCII name is written as its UTF-8 bytes")
+pngUnicodePath()
+    val path = s"${scratch()}/été \u{1F600}.png"
+    made(made(imageSurface(Argb32, 2, 2)).writeToPng(path))
+    assert(fs.exists(path))
+    assertEq(pngHeader(path), "2x2 depth 8 colour 6")
+
+@test("a surface of no pixels is not written: PNG has no empty image")
+pngEmpty()
+    val e = failure(made(imageSurface(Argb32, 0, 0)).writeToPng(s"${scratch()}/empty.png"))
+    assertEq(e.code, 11)
+
+@test("a finished image surface keeps the failure, and writeToPng answers it before writing")
+finishedImage()
+    val s = made(imageSurface(Argb32, 4, 4))
+    made(s.finish())
+    made(s.finish())
+    s.flush()
+    val path = s"${scratch()}/finished.png"
+    val e = failure(s.writeToPng(path))
+    assertEq(e.code, 12)
+    assertEq(e.message, "the target surface has been finished")
+    assert(!fs.exists(path))
+
+// Cairo's context holds two references to its surface, as the target it draws on and as the one it
+// was made with; the Avin context's keep holds a third.
+@test("the handle holds one reference, a context two and the context's keep another, given back when the context goes")
+references()
+    val s = made(imageSurface(Argb32, 4, 4))
+    assertEq(s.referenceCount(), 1)
+    val cr = made(s.context())
+    assertEq(s.referenceCount(), 4)
+    val t = cr.target()
+    assertEq(s.referenceCount(), 5)
+    assertEq(t.referenceCount(), 5)
+    t.close()
+    assertEq(s.referenceCount(), 4)
+    cr.close()
+    assertEq(s.referenceCount(), 1)
+
+@test("two contexts on one surface hold their references each, and give back their own")
+twoContexts()
+    val s = made(imageSurface(Argb32, 4, 4))
+    val a = made(s.context())
+    val b = made(s.context())
+    assertEq(s.referenceCount(), 7)
+    a.close()
+    assertEq(s.referenceCount(), 4)
+    b.close()
+    assertEq(s.referenceCount(), 1)
+
+@test("flush and showPage on an image surface leave it usable")
+flushAndShowPage()
+    val s = made(imageSurface(Rgb24, 3, 3))
+    s.flush()
+    s.showPage()
+    assertEq(code(s.status()), 0)
+
+@test("close() gives the reference back once, and closing again does nothing")
+closeTwice()
+    val s = made(imageSurface(Argb32, 1, 1))
+    val cr = made(s.context())
+    val t = cr.target()
+    assertEq(t.referenceCount(), 5)
+    s.close()
+    assertEq(t.referenceCount(), 4)
+    s.close()
+    s.close()
+    assertEq(t.referenceCount(), 4)
+
+@test(should_trap: "`Surface` is closed")
+closedWrite()
+    val s = made(imageSurface(Argb32, 1, 1))
+    s.close()
+    s.writeToPng(s"${scratch()}/closed.png")
+
+@test(should_trap: "`Surface` is closed")
+closedContext()
+    val s = made(imageSurface(Argb32, 1, 1))
+    s.close()
+    s.context()
+
+@test(should_trap: "`Surface` is closed")
+closedWidth()
+    val s = made(imageSurface(Argb32, 1, 1))
+    s.close()
+    s.width()
+
+@test(should_trap: "`Surface` is closed")
+closedFinish()
+    val s = made(imageSurface(Argb32, 1, 1))
+    s.close()
+    s.finish()

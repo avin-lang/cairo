@@ -1,0 +1,203 @@
+module dev.avinlang.cairo
+
+// Surfaces: what Cairo draws on. An image surface holds pixels in memory and writes them to a PNG
+// file; a PDF or SVG surface writes a document to the file it was made with as it is drawn on, and
+// completes it when finished.
+//
+// Cairo keeps a failure on the surface itself rather than answering it from the call that failed: the
+// surface turns inert, every later call on it does nothing, and its status answers the failure from
+// then on. So the functions that make a surface ask its status before answering it, and those that
+// produce output ask it before they write, and `status()` asks it whenever the caller wants to know.
+
+// A surface, counted by Cairo: the handle holds one reference, and every context drawing on the
+// surface holds another, so the surface lives while anything draws on it.
+@c(type: "cairo_surface_t *", release: "cairo_surface_destroy", retain: "cairo_surface_reference")
+class Surface
+    @c("cairo_status_t cairo_surface_status(cairo_surface_t *self)")
+    private statusRaw() -> Result[unit, int]
+
+    // `Ok` while the surface is usable, and the failure it holds otherwise.
+    status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
+
+    // How many references Cairo counts on the surface: this handle's, and one for each context
+    // drawing on it and each other handle on it.
+    @c("unsigned int cairo_surface_get_reference_count(cairo_surface_t *self)")
+    referenceCount() -> long
+
+    @c("cairo_t *cairo_create(cairo_surface_t *self)", keeps: "self")
+    private contextRaw() -> Context
+
+    // A new context drawing on this surface, with Cairo's defaults: a black source, a line width of
+    // 2, and the identity transform. The context keeps the surface alive.
+    context() -> Result[Context, CairoError] =
+        val made = contextRaw()
+        made.status() match
+            Err(e) ->
+                made.close()
+                Err(e)
+            Ok(_) -> Ok(made)
+
+    // An image surface's width in pixels; 0 for any other surface.
+    @c("int cairo_image_surface_get_width(cairo_surface_t *self)")
+    width() -> int
+
+    // An image surface's height in pixels; 0 for any other surface.
+    @c("int cairo_image_surface_get_height(cairo_surface_t *self)")
+    height() -> int
+
+    // The bytes between the starts of two rows of an image surface's pixels; 0 for any other surface.
+    @c("int cairo_image_surface_get_stride(cairo_surface_t *self)")
+    stride() -> int
+
+    @c("cairo_format_t cairo_image_surface_get_format(cairo_surface_t *self)")
+    private formatRaw() -> int
+
+    // An image surface's pixel format; `None` for any other surface.
+    format() -> Option[Format] = formatOf(formatRaw())
+
+    // Completes any drawing Cairo has deferred, so the surface's memory or file holds it.
+    @c("void cairo_surface_flush(cairo_surface_t *self)")
+    flush()
+
+    @c("cairo_status_t cairo_surface_write_to_png(cairo_surface_t *self, const char *filename)")
+    private writePngRaw(filename: string) -> Result[unit, int]
+
+    // Writes the surface's pixels to the PNG file at `path`, replacing any file there. A surface
+    // that is not an image is drawn into an image first.
+    writeToPng(path: string) -> Result[unit, CairoError] =
+        status()?
+        writePngRaw(path).mapErr(cairoError)
+
+    @c("void cairo_surface_finish(cairo_surface_t *self)")
+    private finishRaw()
+
+    // Completes the surface: a PDF or SVG surface writes the rest of its document and closes its
+    // file. Nothing can be drawn on a finished surface; drawing on one is a failure the surface keeps.
+    finish() -> Result[unit, CairoError] =
+        finishRaw()
+        status()
+
+    // Ends the page of a PDF surface and begins the next, empty.
+    @c("void cairo_surface_show_page(cairo_surface_t *self)")
+    showPage()
+
+    @c("void cairo_pdf_surface_restrict_to_version(cairo_surface_t *self, cairo_pdf_version_t version)")
+    private restrictRaw(version: int)
+
+    // Restricts a PDF surface to a version of PDF, which its document's header names. Called before
+    // anything is drawn.
+    restrictToVersion(version: PdfVersion) = restrictRaw(pdfVersionCode(version))
+
+    // Changes the size of a PDF surface's pages from the next page on, in points.
+    @c("void cairo_pdf_surface_set_size(cairo_surface_t *self, double width_in_points, double height_in_points)")
+    setSize(widthInPoints: real, heightInPoints: real)
+
+    @c("void cairo_pdf_surface_set_metadata(cairo_surface_t *self, cairo_pdf_metadata_t metadata, const char *utf8)")
+    private setMetadataRaw(metadata: int, text: string)
+
+    // Sets one of a PDF document's metadata entries. Dates are written in ISO 8601 form,
+    // `2026-06-12T00:00:00Z`.
+    setMetadata(metadata: PdfMetadata, text: string) = setMetadataRaw(pdfMetadataCode(metadata), text)
+
+    // Sets a metadata entry of a PDF document that Cairo has no name for; an empty value removes it.
+    @c("void cairo_pdf_surface_set_custom_metadata(cairo_surface_t *self, const char *name, const char *value)")
+    setCustomMetadata(name: string, value: string)
+
+    // Labels the current page of a PDF surface, as a viewer shows it in place of its number.
+    @c("void cairo_pdf_surface_set_page_label(cairo_surface_t *self, const char *utf8)")
+    setPageLabel(label: string)
+
+    // Sets the size of the thumbnail images a PDF surface embeds for its pages from the next page on;
+    // 0 for either turns them off.
+    @c("void cairo_pdf_surface_set_thumbnail_size(cairo_surface_t *self, int width, int height)")
+    setThumbnailSize(width: int, height: int)
+
+    @c("int cairo_pdf_surface_add_outline(cairo_surface_t *self, int parent_id, const char *utf8, const char *link_attribs, cairo_pdf_outline_flags_t flags)")
+    private addOutlineRaw(parent: int, text: string, link: string, flags: int) -> int
+
+    // Adds an item to a PDF document's outline, the list of bookmarks a viewer shows beside it, under
+    // the item `parent` (`outlineRoot` for the top level), and answers the new item's id. `link` says
+    // where it goes, as a link tag's attributes do: `dest='top'`, or `page=2 pos=[72 100]`.
+    addOutline(parent: int, text: string, link: string, flags: OutlineFlags = OutlineFlags()) -> int =
+        addOutlineRaw(parent, text, link, outlineFlagsCode(flags))
+
+@c("cairo_surface_t *cairo_image_surface_create(cairo_format_t format, int width, int height)")
+private imageSurfaceRaw(format: int, width: int, height: int) -> Surface
+
+// A surface of `width` by `height` pixels in memory, every pixel transparent black (or black, for a
+// format without alpha). A negative size, or one too large for Cairo, is `Err`.
+imageSurface(format: Format, width: int, height: int) -> Result[Surface, CairoError] =
+    checked(imageSurfaceRaw(formatCode(format), width, height))
+
+@c("cairo_surface_t *cairo_pdf_surface_create(const char *filename, double width_in_points, double height_in_points)")
+private pdfSurfaceRaw(filename: string, widthInPoints: real, heightInPoints: real) -> Surface
+
+// A surface writing a PDF document to the file at `path`, whose pages are `widthInPoints` by
+// `heightInPoints` (a point is 1/72 inch). The document is complete once the surface is finished. A
+// file that cannot be written is `Err`.
+pdfSurface(path: string, widthInPoints: real, heightInPoints: real) -> Result[Surface, CairoError] =
+    checked(pdfSurfaceRaw(path, widthInPoints, heightInPoints))
+
+@c("cairo_surface_t *cairo_svg_surface_create(const char *filename, double width_in_points, double height_in_points)")
+private svgSurfaceRaw(filename: string, widthInPoints: real, heightInPoints: real) -> Surface
+
+// A surface writing an SVG document to the file at `path`, `widthInPoints` by `heightInPoints`. The
+// document is complete once the surface is finished. A file that cannot be written is `Err`.
+svgSurface(path: string, widthInPoints: real, heightInPoints: real) -> Result[Surface, CairoError] =
+    checked(svgSurfaceRaw(path, widthInPoints, heightInPoints))
+
+// A surface just made, or the failure it holds, the surface closed.
+private checked(made: Surface) -> Result[Surface, CairoError] = made.status() match
+    Err(e) ->
+        made.close()
+        Err(e)
+    Ok(_) -> Ok(made)
+
+// The versions of PDF a PDF surface can be restricted to.
+data PdfVersion
+    V14
+    V15
+    V16
+    V17
+
+private pdfVersionCode(version: PdfVersion) -> int = version match
+    V14 -> 0
+    V15 -> 1
+    V16 -> 2
+    V17 -> 3
+
+@c("const char *cairo_pdf_version_to_string(cairo_pdf_version_t version)")
+private pdfVersionText(version: int) -> string
+
+impl PdfVersion
+    // The version as the PDF header writes it: `PDF 1.7`.
+    text() -> string = pdfVersionText(pdfVersionCode(self))
+
+// The metadata entries of a PDF document that Cairo names.
+data PdfMetadata
+    Title
+    Author
+    Subject
+    Keywords
+    Creator
+    CreateDate
+    ModDate
+
+private pdfMetadataCode(metadata: PdfMetadata) -> int = metadata match
+    Title -> 0
+    Author -> 1
+    Subject -> 2
+    Keywords -> 3
+    Creator -> 4
+    CreateDate -> 5
+    ModDate -> 6
+
+// How a viewer shows an item of a PDF document's outline: expanded to show the items under it, in
+// bold, in italic.
+data OutlineFlags(open: bool = false, bold: bool = false, italic: bool = false)
+
+private outlineFlagsCode(flags: OutlineFlags) -> int =
+    (if flags.open then 1 else 0) + (if flags.bold then 2 else 0) + (if flags.italic then 4 else 0)
+
+// The parent of the top-level items of a PDF document's outline.
+val outlineRoot: int = 0

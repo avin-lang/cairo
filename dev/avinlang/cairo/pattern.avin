@@ -1,0 +1,62 @@
+module dev.avinlang.cairo
+
+// Patterns: what a context paints with. A solid pattern is one colour; a gradient blends the colours
+// of its stops along a line or between two circles.
+
+// A pattern, counted by Cairo: the handle holds one reference, and a context painting with it
+// another.
+@c(type: "cairo_pattern_t *", release: "cairo_pattern_destroy", retain: "cairo_pattern_reference")
+class Pattern
+    @c("cairo_status_t cairo_pattern_status(cairo_pattern_t *self)")
+    private statusRaw() -> Result[unit, int]
+
+    // `Ok` while the pattern is usable, and the failure it holds otherwise, such as a colour stop
+    // added to a solid pattern.
+    status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
+
+    // How many references Cairo counts on the pattern.
+    @c("unsigned int cairo_pattern_get_reference_count(cairo_pattern_t *self)")
+    referenceCount() -> long
+
+    // Adds an opaque colour to a gradient at `offset`, from 0 at its start to 1 at its end.
+    @c("void cairo_pattern_add_color_stop_rgb(cairo_pattern_t *self, double offset, double red, double green, double blue)")
+    addColorStopRgb(offset: real, red: real, green: real, blue: real)
+
+    // Adds a colour with an alpha to a gradient at `offset`, from 0 at its start to 1 at its end.
+    @c("void cairo_pattern_add_color_stop_rgba(cairo_pattern_t *self, double offset, double red, double green, double blue, double alpha)")
+    addColorStopRgba(offset: real, red: real, green: real, blue: real, alpha: real)
+
+@c("cairo_pattern_t *cairo_pattern_create_rgb(double red, double green, double blue)")
+private rgbRaw(red: real, green: real, blue: real) -> Pattern
+
+// A pattern of one opaque colour; each component from 0 to 1.
+solidRgb(red: real, green: real, blue: real) -> Result[Pattern, CairoError] = patternChecked(rgbRaw(red, green, blue))
+
+@c("cairo_pattern_t *cairo_pattern_create_rgba(double red, double green, double blue, double alpha)")
+private rgbaRaw(red: real, green: real, blue: real, alpha: real) -> Pattern
+
+// A pattern of one colour with an alpha; each from 0 to 1.
+solidRgba(red: real, green: real, blue: real, alpha: real) -> Result[Pattern, CairoError] =
+    patternChecked(rgbaRaw(red, green, blue, alpha))
+
+@c("cairo_pattern_t *cairo_pattern_create_linear(double x0, double y0, double x1, double y1)")
+private linearRaw(x0: real, y0: real, x1: real, y1: real) -> Pattern
+
+// A gradient along the line from (`x0`, `y0`) to (`x1`, `y1`), with no colour stops yet.
+linearGradient(x0: real, y0: real, x1: real, y1: real) -> Result[Pattern, CairoError] =
+    patternChecked(linearRaw(x0, y0, x1, y1))
+
+@c("cairo_pattern_t *cairo_pattern_create_radial(double cx0, double cy0, double radius0, double cx1, double cy1, double radius1)")
+private radialRaw(cx0: real, cy0: real, radius0: real, cx1: real, cy1: real, radius1: real) -> Pattern
+
+// A gradient between the circle about (`cx0`, `cy0`) of `radius0` and the one about (`cx1`, `cy1`) of
+// `radius1`, with no colour stops yet. A negative radius is `Err`.
+radialGradient(cx0: real, cy0: real, radius0: real, cx1: real, cy1: real, radius1: real) -> Result[Pattern, CairoError] =
+    patternChecked(radialRaw(cx0, cy0, radius0, cx1, cy1, radius1))
+
+// A pattern just made, or the failure it holds, the pattern closed.
+private patternChecked(made: Pattern) -> Result[Pattern, CairoError] = made.status() match
+    Err(e) ->
+        made.close()
+        Err(e)
+    Ok(_) -> Ok(made)

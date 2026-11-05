@@ -1,0 +1,26 @@
+package {
+  name = "cairo"
+  version = "0.1.0"
+  description = "Cairo 1.18 for Avin: image, PDF and SVG surfaces, paths, transforms and gradients"
+}
+
+dependencies {
+}
+
+c-libraries {
+  cairo {
+    pkg-config = "cairo"
+    headers    = ["<cairo.h>"]
+    install    = "Cairo 1.18: `brew install cairo`; Debian's libcairo2-dev"
+  }
+  cairo-pdf {
+    pkg-config = "cairo-pdf"
+    headers    = ["<cairo-pdf.h>"]
+    install    = "Cairo 1.18 with its PDF surface: `brew install cairo`; Debian's libcairo2-dev"
+  }
+  cairo-svg {
+    pkg-config = "cairo-svg"
+    headers    = ["<cairo-svg.h>"]
+    install    = "Cairo 1.18 with its SVG surface: `brew install cairo`; Debian's libcairo2-dev"
+  }
+}

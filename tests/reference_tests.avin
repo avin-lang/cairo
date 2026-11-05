@@ -1,0 +1,93 @@
+module tests
+
+// The reference binding's exercise program, drawn again: `setsourcergba.png`, three translucent
+// squares over a black cross, and `tagged.pdf`, a two-page document with metadata, structure tags, an
+// outline and page labels.
+import dev.avinlang.cairo.{Argb32, Author, Bold, CairoError, CreateDate, Keywords, OutlineFlags, PdfVersion, Regular, Subject, Title, V14, V17, imageSurface, outlineRoot, pdfSurface}
+
+// The reference program's `setsourcergba.png`, written to `path`.
+private setSourceRgba(path: string) -> Result[unit, CairoError] =
+    val surface = imageSurface(Argb32, 120, 120)?
+    val cr = surface.context()?
+    cr.scale(120, 120)
+    cr.setSourceRgb(0, 0, 0)
+    cr.moveTo(0, 0)
+    cr.lineTo(1, 1)
+    cr.moveTo(1, 0)
+    cr.lineTo(0, 1)
+    cr.setLineWidth(0.2)
+    cr.stroke()
+    cr.rectangle(0, 0, 0.5, 0.5)
+    cr.setSourceRgba(1, 0, 0, 0.80)
+    cr.fill()
+    cr.rectangle(0, 0.5, 0.5, 0.5)
+    cr.setSourceRgba(0, 1, 0, 0.60)
+    cr.fill()
+    cr.rectangle(0.5, 0, 0.5, 0.5)
+    cr.setSourceRgba(0, 0, 1, 0.40)
+    cr.fill()
+    cr.status()?
+    surface.writeToPng(path)
+
+@test("setsourcergba.png is drawn as the reference program draws it")
+setSourceRgbaPng()
+    val path = s"${scratch()}/setsourcergba.png"
+    made(setSourceRgba(path))
+    assertEq(pngHeader(path), "120x120 depth 8 colour 6")
+    assert(bytesOf(path).length() > 100)
+
+// The reference program's `tagged.pdf` at `version`, written to `path`: its document metadata, the
+// structure of its two pages, its outline and its page labels. Its named destination and links are
+// left to the tag-name constants Cairo's header defines.
+private tagged(path: string, version: PdfVersion) -> Result[unit, CairoError] =
+    val pdf = pdfSurface(path, 612, 792)?
+    pdf.restrictToVersion(version)
+    pdf.setMetadata(Title, "avin cairo tagged-PDF demo")
+    pdf.setMetadata(Author, "Edward A. Maxedon, Sr.")
+    pdf.setMetadata(Subject, "cairo_tag_begin/end and the PDF metadata API from Avin")
+    pdf.setMetadata(Keywords, "cairo, avin, tagged pdf")
+    pdf.setMetadata(CreateDate, "2026-06-12T00:00:00Z")
+    pdf.setCustomMetadata("Generator-Notes", "produced by the avin cairo tests")
+    val cr = pdf.context()?
+    cr.tagBegin("Document")
+    pdf.setPageLabel("Cover")
+    cr.tagBegin("H1")
+    cr.selectFontFace("Georgia", weight = Bold)
+    cr.setFontSize(24)
+    cr.setSourceRgb(0, 0, 0)
+    cr.moveTo(72, 100)
+    cr.showText("Tagged PDF from Avin")
+    cr.tagEnd("H1")
+    cr.tagBegin("P")
+    cr.selectFontFace("Georgia", weight = Regular)
+    cr.setFontSize(12)
+    cr.moveTo(72, 140)
+    cr.showText("This document has logical structure, an outline and page labels.")
+    cr.tagEnd("P")
+    cr.showPage()
+    pdf.setPageLabel("1")
+    cr.tagBegin("P")
+    cr.moveTo(72, 100)
+    cr.showText("Second page.")
+    cr.tagEnd("P")
+    cr.tagEnd("Document")
+    val chapter = pdf.addOutline(outlineRoot, "Cover", "page=1", OutlineFlags(open = true, bold = true))
+    pdf.addOutline(chapter, "Second page", "page=2 pos=[72 100]")
+    cr.status()?
+    cr.close()
+    pdf.finish()
+
+@test("tagged.pdf is written as PDF 1.7 and finishes with no failure")
+taggedPdf()
+    val path = s"${scratch()}/tagged.pdf"
+    made(tagged(path, V17))
+    assert(textOf(path).startsWith("%PDF-1.7\n"))
+    assert(textOf(path).endsWith("%%EOF\n"))
+
+@test("tagged.pdf written as PDF 1.4 shows its metadata, structure, outline and labels in its bytes")
+taggedPdfContents()
+    val path = s"${scratch()}/tagged-14.pdf"
+    made(tagged(path, V14))
+    val text = textOf(path)
+    for part in ["%PDF-1.4", "/Title (avin cairo tagged-PDF demo)", "/Author (Edward A. Maxedon, Sr.)", "/Keywords (cairo, avin, tagged pdf)", "/CreationDate (20260612000000Z)", "/Generator-Notes (produced by the avin cairo tests)", "/StructTreeRoot", "/S /Document", "/S /H1", "/S /P", "/Outlines", "/Title (Cover)", "/Title (Second page)", "/P (Cover)", "/MediaBox [ 0 0 612 792 ]"]
+        assert(text.contains(part), part)

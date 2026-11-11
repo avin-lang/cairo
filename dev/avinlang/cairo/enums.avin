@@ -1,0 +1,177 @@
+module dev.avinlang.cairo
+
+// Cairo's enumerations, each mirrored as a type whose variants are the enumerators.
+
+// What Cairo reports of an object: `Success` while it is usable, and the reason it is not otherwise.
+@c(enum: "cairo_status_t", prefix: "CAIRO_STATUS_")
+data Status
+  Success
+  NoMemory
+  InvalidRestore
+  InvalidPopGroup
+  NoCurrentPoint
+  InvalidMatrix
+  InvalidStatus
+  NullPointer
+  InvalidString
+  InvalidPathData
+  ReadError
+  WriteError
+  SurfaceFinished
+  SurfaceTypeMismatch
+  PatternTypeMismatch
+  InvalidContent
+  InvalidFormat
+  InvalidVisual
+  FileNotFound
+  InvalidDash
+  InvalidDscComment
+  InvalidIndex
+  ClipNotRepresentable
+  TempFileError
+  InvalidStride
+  FontTypeMismatch
+  UserFontImmutable
+  UserFontError
+  NegativeCount
+  InvalidClusters
+  InvalidSlant
+  InvalidWeight
+  InvalidSize
+  UserFontNotImplemented
+  DeviceTypeMismatch
+  DeviceError
+  InvalidMeshConstruction
+  DeviceFinished
+  Jbig2GlobalMissing
+  PngError
+  FreetypeError
+  Win32GdiError
+  TagError
+  DwriteError
+  SvgFontError
+
+// The layout of an image surface's pixels.
+@c(enum: "cairo_format_t", prefix: "CAIRO_FORMAT_")
+data Format
+  // 32 bits a pixel: alpha in the upper 8, then red, green and blue, premultiplied by alpha.
+  Argb32
+  // 32 bits a pixel: the upper 8 unused, then red, green and blue.
+  Rgb24
+  // 8 bits a pixel of alpha alone.
+  A8
+  // 1 bit a pixel of alpha alone, packed into 32-bit words.
+  A1
+  // 16 bits a pixel: 5 of red, 6 of green and 5 of blue.
+  @c("CAIRO_FORMAT_RGB16_565")
+  Rgb16565
+  // 32 bits a pixel: the upper 2 unused, then 10 each of red, green and blue.
+  Rgb30
+  // Three 32-bit floats a pixel: red, green and blue.
+  Rgb96f
+  // Four 32-bit floats a pixel: red, green, blue and alpha.
+  Rgba128f
+
+// What a surface holds: colour, alpha, or both.
+@c(enum: "cairo_content_t", prefix: "CAIRO_CONTENT_")
+data Content
+  Color
+  Alpha
+  ColorAlpha
+
+// How a source is composited over what is already on the surface.
+@c(enum: "cairo_operator_t", prefix: "CAIRO_OPERATOR_")
+data Operator
+  Clear
+  Source
+  Over
+  In
+  Out
+  Atop
+  Dest
+  DestOver
+  DestIn
+  DestOut
+  DestAtop
+  Xor
+  Add
+  Saturate
+  Multiply
+  Screen
+  Overlay
+  Darken
+  Lighten
+  ColorDodge
+  ColorBurn
+  HardLight
+  SoftLight
+  Difference
+  Exclusion
+  HslHue
+  HslSaturation
+  HslColor
+  HslLuminosity
+
+// How edges are smoothed when drawn.
+@c(enum: "cairo_antialias_t", prefix: "CAIRO_ANTIALIAS_")
+data Antialias
+  Default
+  None
+  Gray
+  Subpixel
+  Fast
+  Good
+  Best
+
+// Which parts of a self-crossing path are inside it.
+@c(enum: "cairo_fill_rule_t", prefix: "CAIRO_FILL_RULE_")
+data FillRule
+  Winding
+  EvenOdd
+
+// How a stroked line ends.
+@c(enum: "cairo_line_cap_t", prefix: "CAIRO_LINE_CAP_")
+data LineCap
+  Butt
+  Round
+  Square
+
+// How two stroked lines meet.
+@c(enum: "cairo_line_join_t", prefix: "CAIRO_LINE_JOIN_")
+data LineJoin
+  Miter
+  Round
+  Bevel
+
+// What a pattern paints outside its own area.
+@c(enum: "cairo_extend_t", prefix: "CAIRO_EXTEND_")
+data Extend
+  None
+  Repeat
+  Reflect
+  Pad
+
+// How a pattern is sampled.
+@c(enum: "cairo_filter_t", prefix: "CAIRO_FILTER_")
+data Filter
+  Fast
+  Good
+  Best
+  Nearest
+  Bilinear
+  Gaussian
+
+// The slant of a font `selectFontFace` asks for.
+@c(enum: "cairo_font_slant_t", prefix: "CAIRO_FONT_SLANT_")
+data FontSlant
+  @c("CAIRO_FONT_SLANT_NORMAL")
+  Upright
+  Italic
+  Oblique
+
+// The weight of a font `selectFontFace` asks for.
+@c(enum: "cairo_font_weight_t", prefix: "CAIRO_FONT_WEIGHT_")
+data FontWeight
+  @c("CAIRO_FONT_WEIGHT_NORMAL")
+  Regular
+  Bold

@@ -73,6 +73,16 @@ main()
   `paint`, and the `_preserve` forms; `translate`, `scale` and `rotate`; text with
   `selectFontFace`, `setFontSize` and `showText`; `tagBegin` and `tagEnd` for a PDF's structure;
   `target`; and `showPage`.
+- **Enumerations**, each a type of variants: `Status` (with `describe`), `Format`, `Content`,
+  `Operator`, `Antialias`, `FillRule`, `LineCap`, `LineJoin`, `Extend`, `Filter`, `FontSlant` and
+  `FontWeight`. A context's `setOperator`, `setAntialias`, `setFillRule`, `setLineCap` and
+  `setLineJoin` take them and `operator`, `antialias`, `fillRule`, `lineCap` and `lineJoin` answer
+  them; a pattern has `setExtend`, `extend`, `setFilter` and `filter`; a surface has `content`; and
+  `statusKind()` answers a context's, surface's or pattern's status as a `Status`.
+- **Geometry on a context**: `currentPoint`; `userToDevice`, `deviceToUser` and their `_Distance`
+  forms; `fillExtents`, `strokeExtents`, `pathExtents` and `clipExtents`; `inClip`, `clip`,
+  `clipPreserve` and `resetClip`; and `setDash` and `dashCount`. Cairo's `cairo_get_dash` is not
+  bound: Avin's C bindings cannot express an array C fills whose length comes from another call.
 - **Patterns**: `solidRgb`, `solidRgba`, `linearGradient` and `radialGradient`, with
   `addColorStopRgb` and `addColorStopRgba`.
 - `version()` and `versionString()`.

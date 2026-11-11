@@ -52,8 +52,21 @@ class Surface
   @c("cairo_format_t cairo_image_surface_get_format(cairo_surface_t *self)")
   private formatRaw() -> int
 
+  @c("cairo_format_t cairo_image_surface_get_format(cairo_surface_t *self)")
+  private formatMirror() -> Format
+
   // An image surface's pixel format; `None` for any other surface.
-  format() -> Option[Format] = formatOf(formatRaw())
+  format() -> Option[Format] = if formatRaw() < 0 then None else Some(formatMirror())
+
+  // What the surface holds: colour, alpha or both.
+  @c("cairo_content_t cairo_surface_get_content(cairo_surface_t *self)")
+  content() -> Content
+
+  @c("cairo_status_t cairo_surface_status(cairo_surface_t *self)")
+  private statusMirror() -> Status
+
+  // The surface's status as Cairo numbers it: `Success` while it is usable.
+  statusKind() -> Status = statusMirror()
 
   // Completes any drawing Cairo has deferred, so the surface's memory or file holds it.
   @c("void cairo_surface_flush(cairo_surface_t *self)")
@@ -124,12 +137,12 @@ class Surface
     addOutlineRaw(parent, text, link, outlineFlagsCode(flags))
 
 @c("cairo_surface_t *cairo_image_surface_create(cairo_format_t format, int width, int height)")
-private imageSurfaceRaw(format: int, width: int, height: int) -> Surface
+private imageSurfaceRaw(format: Format,width: int, height: int) -> Surface
 
 // A surface of `width` by `height` pixels in memory, every pixel transparent black (or black, for a
 // format without alpha). A negative size, or one too large for Cairo, is `Err`.
 imageSurface(format: Format, width: int, height: int) -> Result[Surface, CairoError] =
-  checked(imageSurfaceRaw(formatCode(format), width, height))
+  checked(imageSurfaceRaw(format, width, height))
 
 @c("cairo_surface_t *cairo_pdf_surface_create(const char *filename, double width_in_points, double height_in_points)")
 private pdfSurfaceRaw(filename: string, widthInPoints: real, heightInPoints: real) -> Surface

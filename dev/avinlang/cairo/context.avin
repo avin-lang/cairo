@@ -142,12 +142,12 @@ class Context
   @c(
     "void cairo_select_font_face(cairo_t *self, const char *family, cairo_font_slant_t slant, cairo_font_weight_t weight)"
   )
-  private selectFontFaceRaw(family: string, slant: int, weight: int)
+  private selectFontFaceRaw(family: string, slant: FontSlant, weight: FontWeight)
 
   // Draws text from now on with the font of `family` the system finds, such as `serif` or
   // `Georgia`, in the slant and weight given.
   selectFontFace(family: string, slant: FontSlant = Upright, weight: FontWeight = Regular) =
-    selectFontFaceRaw(family, fontSlantCode(slant), fontWeightCode(weight))
+    selectFontFaceRaw(family, slant, weight)
 
   // Draws text `size` user units high from now on.
   @c("void cairo_set_font_size(cairo_t *self, double size)")
@@ -157,22 +157,109 @@ class Context
   @c("void cairo_show_text(cairo_t *self, const char *utf8)")
   showText(text: string)
 
-// The slant of a font `selectFontFace` asks for.
-data FontSlant
-  Upright
-  Italic
-  Oblique
+  @c("cairo_status_t cairo_status(cairo_t *self)")
+  private statusMirror() -> Status
 
-private fontSlantCode(slant: FontSlant) -> int = slant match
-  Upright -> 0
-  Italic -> 1
-  Oblique -> 2
+  // The context's status as Cairo numbers it: `Success` while it is usable.
+  statusKind() -> Status = statusMirror()
 
-// The weight of a font `selectFontFace` asks for.
-data FontWeight
-  Regular
-  Bold
+  // How a source is composited from now on; `Over` to begin with.
+  @c("void cairo_set_operator(cairo_t *self, cairo_operator_t op)")
+  setOperator(op: Operator)
 
-private fontWeightCode(weight: FontWeight) -> int = weight match
-  Regular -> 0
-  Bold -> 1
+  @c("cairo_operator_t cairo_get_operator(cairo_t *self)")
+  operator() -> Operator
+
+  // How edges are smoothed from now on; `Default` to begin with.
+  @c("void cairo_set_antialias(cairo_t *self, cairo_antialias_t antialias)")
+  setAntialias(antialias: Antialias)
+
+  @c("cairo_antialias_t cairo_get_antialias(cairo_t *self)")
+  antialias() -> Antialias
+
+  // Which parts of a self-crossing path `fill` paints; `Winding` to begin with.
+  @c("void cairo_set_fill_rule(cairo_t *self, cairo_fill_rule_t fill_rule)")
+  setFillRule(rule: FillRule)
+
+  @c("cairo_fill_rule_t cairo_get_fill_rule(cairo_t *self)")
+  fillRule() -> FillRule
+
+  // How `stroke` ends a line; `Butt` to begin with.
+  @c("void cairo_set_line_cap(cairo_t *self, cairo_line_cap_t line_cap)")
+  setLineCap(cap: LineCap)
+
+  @c("cairo_line_cap_t cairo_get_line_cap(cairo_t *self)")
+  lineCap() -> LineCap
+
+  // How `stroke` joins two lines; `Miter` to begin with.
+  @c("void cairo_set_line_join(cairo_t *self, cairo_line_join_t line_join)")
+  setLineJoin(join: LineJoin)
+
+  @c("cairo_line_join_t cairo_get_line_join(cairo_t *self)")
+  lineJoin() -> LineJoin
+
+  @c("void cairo_get_current_point(cairo_t *self, out double *x, out double *y)")
+  private currentPointRaw() -> (real, real)
+
+  // The end of the path so far, in user coordinates; `None` while the path is empty.
+  currentPoint() -> Option[(real, real)] = if hasCurrentPoint() then Some(currentPointRaw()) else None
+
+  // The device coordinates of the user's point (`x`, `y`).
+  @c("void cairo_user_to_device(cairo_t *self, inout double *x, inout double *y)")
+  userToDevice(x: real, y: real) -> (real, real)
+
+  // The user coordinates of the device's point (`x`, `y`). A transform that cannot be inverted is a
+  // failure the context keeps.
+  @c("void cairo_device_to_user(cairo_t *self, inout double *x, inout double *y)")
+  deviceToUser(x: real, y: real) -> (real, real)
+
+  // The device's distance vector for the user's (`dx`, `dy`): the transform without its translation.
+  @c("void cairo_user_to_device_distance(cairo_t *self, inout double *dx, inout double *dy)")
+  userToDeviceDistance(dx: real, dy: real) -> (real, real)
+
+  // The user's distance vector for the device's (`dx`, `dy`).
+  @c("void cairo_device_to_user_distance(cairo_t *self, inout double *dx, inout double *dy)")
+  deviceToUserDistance(dx: real, dy: real) -> (real, real)
+
+  // The box `fill` would paint in, as (left, top, right, bottom) in user units.
+  @c("void cairo_fill_extents(cairo_t *self, out double *x1, out double *y1, out double *x2, out double *y2)")
+  fillExtents() -> (real, real, real, real)
+
+  // The box `stroke` would paint in, as (left, top, right, bottom) in user units.
+  @c("void cairo_stroke_extents(cairo_t *self, out double *x1, out double *y1, out double *x2, out double *y2)")
+  strokeExtents() -> (real, real, real, real)
+
+  // The box around the path's points, as (left, top, right, bottom) in user units.
+  @c("void cairo_path_extents(cairo_t *self, out double *x1, out double *y1, out double *x2, out double *y2)")
+  pathExtents() -> (real, real, real, real)
+
+  // The box `paint` is limited to, as (left, top, right, bottom) in user units: huge while there is
+  // no clip.
+  @c("void cairo_clip_extents(cairo_t *self, out double *x1, out double *y1, out double *x2, out double *y2)")
+  clipExtents() -> (real, real, real, real)
+
+  // Whether (`x`, `y`) is inside the clip.
+  @c("cairo_bool_t cairo_in_clip(cairo_t *self, double x, double y)")
+  inClip(x: real, y: real) -> bool
+
+  // Intersects the clip with the path, and empties the path.
+  @c("void cairo_clip(cairo_t *self)")
+  clip()
+
+  // Intersects the clip with the path, keeping the path.
+  @c("void cairo_clip_preserve(cairo_t *self)")
+  clipPreserve()
+
+  // Removes the clip.
+  @c("void cairo_reset_clip(cairo_t *self)")
+  resetClip()
+
+  // Strokes with a dash pattern: alternating lengths of line and gap, in user units, repeated, the
+  // first `offset` into it. An empty pattern is a solid line. A negative length, or lengths all of 0,
+  // is a failure the context keeps.
+  @c("void cairo_set_dash(cairo_t *self, const double *dashes, length(dashes) int num_dashes, double offset)")
+  setDash(dashes: Array[real], offset: real = 0.0)
+
+  // How many lengths the dash pattern has; 0 for a solid line.
+  @c("int cairo_get_dash_count(cairo_t *self)")
+  dashCount() -> int

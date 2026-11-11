@@ -1,0 +1,330 @@
+module tests
+
+// Cairo's enumerations round-tripped through the calls that take and answer them, statuses, the
+// current point, transforms of points and distances, extents, clips and dash patterns.
+import avin.math
+import dev.avinlang.cairo.{
+  A1,
+  A8,
+  Add,
+  Alpha,
+  Antialias,
+  Argb32,
+  Atop,
+  Best,
+  Bevel,
+  Bilinear,
+  Bold,
+  Butt,
+  Clear,
+  Color,
+  ColorAlpha,
+  ColorBurn,
+  ColorDodge,
+  Content,
+  Darken,
+  Default,
+  Dest,
+  DestAtop,
+  DestIn,
+  DestOut,
+  DestOver,
+  Difference,
+  EvenOdd,
+  Exclusion,
+  Extend,
+  Fast,
+  Filter,
+  FillRule,
+  Format,
+  FontSlant,
+  FontWeight,
+  Gaussian,
+  Good,
+  Gray,
+  HardLight,
+  HslColor,
+  HslHue,
+  HslLuminosity,
+  HslSaturation,
+  In,
+  Italic,
+  Lighten,
+  LineCap,
+  LineJoin,
+  Miter,
+  Multiply,
+  Nearest,
+  Oblique,
+  Operator,
+  Out,
+  Over,
+  Overlay,
+  Pad,
+  Reflect,
+  Regular,
+  Repeat,
+  Rgb16565,
+  Rgb24,
+  Rgb30,
+  Rgb96f,
+  Rgba128f,
+  Round,
+  Saturate,
+  Screen,
+  SoftLight,
+  Source,
+  Square,
+  Status,
+  Subpixel,
+  Upright,
+  Winding,
+  Xor,
+  describe,
+  imageSurface,
+  pdfSurface,
+  solidRgb
+}
+
+// Whether two numbers are within a millionth.
+near(a: real, b: real) -> bool = math.abs(a - b) < 1e-6
+
+@test("every operator is set on a context and read back, the first being Over")
+operators()
+  val cr = canvas(4, 4)
+  assertEq(cr.operator(), Over)
+  val all = [
+    Clear, Source, Over, In, Out, Atop, Dest, DestOver, DestIn, DestOut, DestAtop, Xor, Add, Saturate, Multiply,
+    Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion, HslHue,
+    HslSaturation, HslColor, HslLuminosity
+  ]
+  assertEq(all.length(), 29)
+  for op in all
+    cr.setOperator(op)
+    assertEq(cr.operator(), op)
+  assertEq(code(cr.status()), 0)
+
+@test("antialias, fill rule, line cap and line join are set and read back from their defaults")
+drawingModes()
+  val cr = canvas(4, 4)
+  assertEq(cr.antialias(), Antialias.Default)
+  for a in [Antialias.None, Gray, Subpixel, Antialias.Fast, Antialias.Good, Antialias.Best, Antialias.Default]
+    cr.setAntialias(a)
+    assertEq(cr.antialias(), a)
+  assertEq(cr.fillRule(), Winding)
+  for r in [EvenOdd, Winding]
+    cr.setFillRule(r)
+    assertEq(cr.fillRule(), r)
+  assertEq(cr.lineCap(), Butt)
+  for c in [LineCap.Round, Square, Butt]
+    cr.setLineCap(c)
+    assertEq(cr.lineCap(), c)
+  assertEq(cr.lineJoin(), Miter)
+  for j in [LineJoin.Round, Bevel, Miter]
+    cr.setLineJoin(j)
+    assertEq(cr.lineJoin(), j)
+  assertEq(code(cr.status()), 0)
+
+@test("every format and content of an image surface is read back, and a PDF surface has no format")
+formatsAndContents()
+  val formats = [Argb32, Rgb24, A8, A1, Rgb16565, Rgb30, Rgb96f, Rgba128f]
+  val contents = [ColorAlpha, Color, Alpha, Alpha, Color, Color, Color, ColorAlpha]
+  for i in 0 ..< formats.length()
+    val s = made(imageSurface(formats(i), 2, 2))
+    assertEq(s.format(), Some(formats(i)))
+    assertEq(s.content(), contents(i))
+  val pdf = made(pdfSurface(scratch() + "/f.pdf", 10, 10))
+  assertEq(pdf.format(), None)
+  assertEq(pdf.content(), ColorAlpha)
+
+@test("a pattern's extend and filter are set and read back")
+extendAndFilter()
+  val p = made(solidRgb(1, 0, 0))
+  assertEq(p.extend(), Pad)
+  for e in [Extend.None, Repeat, Reflect, Pad]
+    p.setExtend(e)
+    assertEq(p.extend(), e)
+  assertEq(p.filter(), Filter.Good)
+  for f in [Filter.Fast, Filter.Good, Filter.Best, Nearest, Bilinear, Gaussian]
+    p.setFilter(f)
+    assertEq(p.filter(), f)
+  assertEq(p.statusKind(), Status.Success)
+
+@test("every font slant and weight is accepted by selectFontFace")
+fontEnums()
+  val cr = canvas(20, 20)
+  for s in [Upright, Italic, Oblique]
+    for w in [Regular, Bold]
+      cr.selectFontFace("serif", s, w)
+  assertEq(cr.statusKind(), Status.Success)
+
+@test("a context's, surface's and pattern's status is a Status, and describe gives Cairo's words")
+statuses()
+  val cr = canvas(10, 10)
+  assertEq(cr.statusKind(), Status.Success)
+  cr.restore()
+  assertEq(cr.statusKind(), Status.InvalidRestore)
+  assertEq(describe(Status.InvalidRestore), failure(cr.status()).message)
+  assertEq(failure(cr.status()).code, 2)
+  assertEq(describe(Status.Success), "no error has occurred")
+  assertEq(describe(Status.NoMemory), "out of memory")
+  val p = made(solidRgb(0, 0, 0))
+  p.addColorStopRgb(0.5, 1, 1, 1)
+  assertEq(p.statusKind(), Status.PatternTypeMismatch)
+  val s = made(imageSurface(Argb32, 2, 2))
+  assertEq(s.statusKind(), Status.Success)
+  s.finish()
+  assertEq(s.statusKind(), Status.Success)
+  assertEq(code(s.writeToPng(scratch() + "/x.png")), 12)
+
+@test("every status has a description")
+everyStatus()
+  val all = [
+    Status.Success, Status.NoMemory, Status.InvalidRestore, Status.InvalidPopGroup, Status.NoCurrentPoint,
+    Status.InvalidMatrix, Status.InvalidStatus, Status.NullPointer, Status.InvalidString, Status.InvalidPathData,
+    Status.ReadError, Status.WriteError, Status.SurfaceFinished, Status.SurfaceTypeMismatch,
+    Status.PatternTypeMismatch, Status.InvalidContent, Status.InvalidFormat, Status.InvalidVisual,
+    Status.FileNotFound, Status.InvalidDash, Status.InvalidDscComment, Status.InvalidIndex,
+    Status.ClipNotRepresentable, Status.TempFileError, Status.InvalidStride, Status.FontTypeMismatch,
+    Status.UserFontImmutable, Status.UserFontError, Status.NegativeCount, Status.InvalidClusters,
+    Status.InvalidSlant, Status.InvalidWeight, Status.InvalidSize, Status.UserFontNotImplemented,
+    Status.DeviceTypeMismatch, Status.DeviceError, Status.InvalidMeshConstruction, Status.DeviceFinished,
+    Status.Jbig2GlobalMissing, Status.PngError, Status.FreetypeError, Status.Win32GdiError, Status.TagError,
+    Status.DwriteError, Status.SvgFontError
+  ]
+  assertEq(all.length(), 45)
+  for s in all
+    assert(describe(s) != "")
+
+@test("the current point is None on an empty path and follows moveTo and lineTo")
+currentPoint()
+  val cr = canvas(20, 20)
+  assertEq(cr.currentPoint(), None)
+  cr.moveTo(3, 4)
+  assertEq(cr.currentPoint(), Some((3.0, 4.0)))
+  cr.lineTo(5.5, 6.25)
+  assertEq(cr.currentPoint(), Some((5.5, 6.25)))
+  cr.newPath()
+  assertEq(cr.currentPoint(), None)
+
+@test("the current point is in user coordinates, so a transform moves what it reads as")
+currentPointTransformed()
+  val cr = canvas(20, 20)
+  cr.translate(10, 10)
+  cr.moveTo(1, 2)
+  assertEq(cr.currentPoint(), Some((1.0, 2.0)))
+  cr.translate(-10, -10)
+  assertEq(cr.currentPoint(), Some((11.0, 12.0)))
+
+@test("user_to_device and device_to_user apply and undo the transform")
+pointTransforms()
+  val cr = canvas(20, 20)
+  assertEq(cr.userToDevice(3, 4), (3.0, 4.0))
+  cr.translate(10, 20)
+  cr.scale(2, 3)
+  assertEq(cr.userToDevice(1, 1), (12.0, 23.0))
+  assertEq(cr.deviceToUser(12, 23), (1.0, 1.0))
+  assertEq(cr.userToDeviceDistance(1, 1), (2.0, 3.0))
+  assertEq(cr.deviceToUserDistance(2, 3), (1.0, 1.0))
+
+@test("a rotated transform round-trips a point and a distance within epsilon")
+rotatedRoundTrip()
+  val cr = canvas(20, 20)
+  cr.translate(5, 7)
+  cr.rotate(0.7)
+  cr.scale(1.5, 0.5)
+  val (dx, dy) = cr.userToDevice(3.25, -2.5)
+  val (ux, uy) = cr.deviceToUser(dx, dy)
+  assert(near(ux, 3.25))
+  assert(near(uy, -2.5))
+  val (vx, vy) = cr.userToDeviceDistance(3.25, -2.5)
+  val (wx, wy) = cr.deviceToUserDistance(vx, vy)
+  assert(near(wx, 3.25))
+  assert(near(wy, -2.5))
+  assertEq(code(cr.status()), 0)
+
+@test("a distance ignores the translation, and the rotation by a quarter turn swaps the axes")
+distances()
+  val cr = canvas(20, 20)
+  cr.translate(100, 100)
+  assertEq(cr.userToDeviceDistance(2, 5), (2.0, 5.0))
+  cr.rotate(1.5707963267948966)
+  val (dx, dy) = cr.userToDeviceDistance(1, 0)
+  assert(near(dx, 0))
+  assert(near(dy, 1))
+
+@test("a transform that cannot be inverted is a failure the context keeps")
+singularTransform()
+  val cr = canvas(20, 20)
+  cr.scale(0, 1)
+  assertEq(cr.statusKind(), Status.InvalidMatrix)
+  assertEq(failure(cr.status()).code, 5)
+
+@test("a 10 by 10 rectangle's extents: fill and path are its corners, stroke adds half the line width")
+rectangleExtents()
+  val cr = canvas(40, 40)
+  cr.rectangle(0, 0, 10, 10)
+  assertEq(cr.fillExtents(), (0.0, 0.0, 10.0, 10.0))
+  assertEq(cr.pathExtents(), (0.0, 0.0, 10.0, 10.0))
+  assertEq(cr.strokeExtents(), (-1.0, -1.0, 11.0, 11.0))
+  cr.setLineWidth(4)
+  assertEq(cr.strokeExtents(), (-2.0, -2.0, 12.0, 12.0))
+
+@test("extents of an empty path are all zero, and follow a transform's user units")
+emptyAndScaledExtents()
+  val cr = canvas(40, 40)
+  assertEq(cr.fillExtents(), (0.0, 0.0, 0.0, 0.0))
+  assertEq(cr.pathExtents(), (0.0, 0.0, 0.0, 0.0))
+  assertEq(cr.strokeExtents(), (0.0, 0.0, 0.0, 0.0))
+  cr.scale(2, 2)
+  cr.rectangle(1, 2, 3, 4)
+  assertEq(cr.fillExtents(), (1.0, 2.0, 4.0, 6.0))
+  assertEq(cr.pathExtents(), (1.0, 2.0, 4.0, 6.0))
+
+@test("clip extents are the surface until a clip narrows them, and in_clip, clip and reset_clip agree")
+clipping()
+  val cr = canvas(20, 20)
+  assertEq(cr.clipExtents(), (0.0, 0.0, 20.0, 20.0))
+  assert(cr.inClip(1, 1))
+  cr.rectangle(2, 3, 4, 5)
+  cr.clip()
+  assertEq(cr.clipExtents(), (2.0, 3.0, 6.0, 8.0))
+  assert(cr.inClip(3, 4))
+  assert(!cr.inClip(1, 1))
+  assert(!cr.inClip(6, 8))
+  assert(!cr.hasCurrentPoint())
+  cr.resetClip()
+  assertEq(cr.clipExtents(), (0.0, 0.0, 20.0, 20.0))
+  cr.rectangle(2, 3, 4, 5)
+  cr.clipPreserve()
+  assert(cr.hasCurrentPoint())
+  assert(!cr.inClip(0, 0))
+
+@test("in_fill and in_stroke on the rectangle agree with its extents")
+insideTests()
+  val cr = canvas(40, 40)
+  cr.rectangle(0, 0, 10, 10)
+  assert(cr.inFill(5, 5))
+  assert(!cr.inFill(10.5, 5))
+  assert(cr.inStroke(10.5, 5))
+  assert(!cr.inStroke(5, 5))
+
+@test("a dash pattern is set and its count read back, and none is a solid line")
+dashes()
+  val cr = canvas(20, 20)
+  assertEq(cr.dashCount(), 0)
+  cr.setDash([1.0, 2.0, 3.0], 0.5)
+  assertEq(cr.dashCount(), 3)
+  cr.setDash([], 0.0)
+  assertEq(cr.dashCount(), 0)
+  assertEq(code(cr.status()), 0)
+
+@test("a negative dash length is Err with InvalidDash, and so are lengths all zero")
+badDashes()
+  val cr = canvas(20, 20)
+  cr.setDash([1.0, -1.0], 0.0)
+  assertEq(cr.statusKind(), Status.InvalidDash)
+  assertEq(failure(cr.status()).code, 19)
+  val cr2 = canvas(20, 20)
+  cr2.setDash([0.0, 0.0], 0.0)
+  assertEq(cr2.statusKind(), Status.InvalidDash)

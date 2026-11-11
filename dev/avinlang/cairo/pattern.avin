@@ -14,6 +14,26 @@ class Pattern
   // added to a solid pattern.
   status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
 
+  @c("cairo_status_t cairo_pattern_status(cairo_pattern_t *self)")
+  private statusMirror() -> Status
+
+  // The pattern's status as Cairo numbers it: `Success` while it is usable.
+  statusKind() -> Status = statusMirror()
+
+  // What the pattern paints outside its own area.
+  @c("void cairo_pattern_set_extend(cairo_pattern_t *self, cairo_extend_t extend)")
+  setExtend(extend: Extend)
+
+  @c("cairo_extend_t cairo_pattern_get_extend(cairo_pattern_t *self)")
+  extend() -> Extend
+
+  // How the pattern is sampled.
+  @c("void cairo_pattern_set_filter(cairo_pattern_t *self, cairo_filter_t filter)")
+  setFilter(filter: Filter)
+
+  @c("cairo_filter_t cairo_pattern_get_filter(cairo_pattern_t *self)")
+  filter() -> Filter
+
   // How many references Cairo counts on the pattern.
   @c("unsigned int cairo_pattern_get_reference_count(cairo_pattern_t *self)")
   referenceCount() -> long

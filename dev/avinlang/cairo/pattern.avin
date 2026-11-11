@@ -34,6 +34,15 @@ class Pattern
   @c("cairo_filter_t cairo_pattern_get_filter(cairo_pattern_t *self)")
   filter() -> Filter
 
+  // Replaces the matrix that maps user space to the pattern's own; the pattern uses its inverse, so
+  // a matrix that cannot be inverted is a failure the pattern keeps.
+  @c("void cairo_pattern_set_matrix(cairo_pattern_t *self, const cairo_matrix_t *matrix)")
+  setMatrix(matrix: Matrix)
+
+  // The matrix `setMatrix` gave; the identity to begin with.
+  @c("void cairo_pattern_get_matrix(cairo_pattern_t *self, out cairo_matrix_t *matrix)")
+  matrix() -> Matrix
+
   // How many references Cairo counts on the pattern.
   @c("unsigned int cairo_pattern_get_reference_count(cairo_pattern_t *self)")
   referenceCount() -> long

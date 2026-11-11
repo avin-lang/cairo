@@ -1,0 +1,191 @@
+module tests
+
+// Matrices: made, composed, inverted and applied; the transform of a context and the matrix of a
+// pattern; and the recording surface, whose extents are measured from what is drawn on it.
+import avin.math.Pi
+
+import dev.avinlang.cairo.{
+  Alpha,
+  ColorAlpha,
+  Matrix,
+  Rectangle,
+  identityMatrix,
+  linearGradient,
+  matrix,
+  recordingSurface,
+  rotationMatrix,
+  scalingMatrix,
+  translationMatrix
+}
+
+// Whether every field of two matrices is within 1e-6 (`near`'s tolerance).
+private nearMatrix(a: Matrix, b: Matrix) -> bool =
+  near(a.xx, b.xx) && near(a.yx, b.yx) && near(a.xy, b.xy) && near(a.yy, b.yy) && near(a.x0, b.x0) && near(a.y0, b.y0)
+
+@test("the identity matrix, and the matrices made from the six numbers, a translation, a scale and a turn")
+makers()
+  val id = identityMatrix()
+  assertEq(id, Matrix(1.0, 0.0, 0.0, 1.0, 0.0, 0.0))
+  assertEq(matrix(1, 2, 3, 4, 5, 6), Matrix(1.0, 2.0, 3.0, 4.0, 5.0, 6.0))
+  assertEq(translationMatrix(7, -8), Matrix(1.0, 0.0, 0.0, 1.0, 7.0, -8.0))
+  assertEq(scalingMatrix(2, 3), Matrix(2.0, 0.0, 0.0, 3.0, 0.0, 0.0))
+  assert(nearMatrix(rotationMatrix(0), id))
+  assert(nearMatrix(rotationMatrix(Pi / 2), Matrix(0.0, 1.0, -1.0, 0.0, 0.0, 0.0)))
+
+@test("a scale and then a translate compose: the translation is applied first, then the scale")
+scaleThenTranslate()
+  val m = identityMatrix().scale(2, 3).translate(10, 20)
+  assertEq(m, Matrix(2.0, 0.0, 0.0, 3.0, 20.0, 60.0))
+  assertEq(m.transformPoint(0, 0), (20.0, 60.0))
+  assertEq(m.transformPoint(1, 1), (22.0, 63.0))
+
+@test("a translate and then a scale compose the other way")
+translateThenScale()
+  val m = identityMatrix().translate(10, 20).scale(2, 3)
+  assertEq(m, Matrix(2.0, 0.0, 0.0, 3.0, 10.0, 20.0))
+  assertEq(m.transformPoint(1, 1), (12.0, 23.0))
+
+@test("a matrix turned by a quarter turn sends the x axis to the y axis")
+rotated()
+  val m = identityMatrix().rotate(Pi / 2)
+  val (x, y) = m.transformPoint(1, 0)
+  assert(near(x, 0.0))
+  assert(near(y, 1.0))
+
+@test("multiply applies the first matrix and then the second")
+multiplied()
+  val m = translationMatrix(1, 0).multiply(scalingMatrix(2, 2))
+  assertEq(m.transformPoint(0, 0), (2.0, 0.0))
+  val n = scalingMatrix(2, 2).multiply(translationMatrix(1, 0))
+  assertEq(n.transformPoint(0, 0), (1.0, 0.0))
+  assertEq(identityMatrix().multiply(m), m)
+  assertEq(m.multiply(identityMatrix()), m)
+
+@test("the inverse of a matrix, multiplied back, is the identity within epsilon")
+inverted()
+  val m = matrix(2, 0, 0, 4, 6, 8)
+  val inv = made(m.invert())
+  assertEq(inv, Matrix(0.5, 0.0, 0.0, 0.25, -3.0, -2.0))
+  assert(nearMatrix(m.multiply(inv), identityMatrix()))
+  assert(nearMatrix(inv.multiply(m), identityMatrix()))
+  val r = identityMatrix().rotate(0.7).scale(3, 5).translate(1, 2)
+  assert(nearMatrix(r.multiply(made(r.invert())), identityMatrix()))
+  assert(nearMatrix(made(made(r.invert()).invert()), r))
+
+@test("the identity is its own inverse")
+identityInverse()
+  assertEq(made(identityMatrix().invert()), identityMatrix())
+
+@test("a singular matrix cannot be inverted: InvalidMatrix")
+singular()
+  for m in [matrix(1, 2, 2, 4, 0, 0), matrix(0, 0, 0, 0, 0, 0), scalingMatrix(0, 5), matrix(1, 0, 0, 0, 3, 3)]
+    val e = failure(m.invert())
+    assertEq(e.code, 5)
+    assertEq(e.message, "invalid matrix (not invertible)")
+
+@test("a distance vector is moved by a matrix without its translation")
+distance()
+  val m = matrix(2, 0, 0, 3, 100, 200)
+  assertEq(m.transformPoint(1, 1), (102.0, 203.0))
+  assertEq(m.transformDistance(1, 1), (2.0, 3.0))
+  assertEq(identityMatrix().transformDistance(4, 5), (4.0, 5.0))
+
+@test("a context starts with the identity, and its matrix follows translate, scale and rotate")
+contextMatrix()
+  val cr = canvas(10, 10)
+  assertEq(cr.matrix(), identityMatrix())
+  cr.translate(5, 6)
+  cr.scale(2, 3)
+  assertEq(cr.matrix(), Matrix(2.0, 0.0, 0.0, 3.0, 5.0, 6.0))
+  assertEq(cr.matrix(), identityMatrix().translate(5, 6).scale(2, 3))
+  cr.identityMatrix()
+  assertEq(cr.matrix(), identityMatrix())
+
+@test("setMatrix replaces the transform and transform applies a matrix before it")
+setAndTransform()
+  val cr = canvas(10, 10)
+  val m = matrix(2, 0, 0, 3, 5, 6)
+  cr.setMatrix(m)
+  assertEq(cr.matrix(), m)
+  assertEq(cr.userToDevice(1, 1), (7.0, 9.0))
+  cr.transform(translationMatrix(10, 10))
+  assertEq(cr.matrix(), translationMatrix(10, 10).multiply(m))
+  assertEq(cr.userToDevice(0, 0), m.transformPoint(10, 10))
+  assertEq(code(cr.status()), 0)
+
+@test("a context's point and distance transforms agree with its matrix")
+contextAgrees()
+  val cr = canvas(10, 10)
+  cr.rotate(0.3)
+  cr.scale(2, 5)
+  val m = cr.matrix()
+  val (x, y) = cr.userToDevice(3, 4)
+  val (mx, my) = m.transformPoint(3, 4)
+  assert(near(x, mx))
+  assert(near(y, my))
+  val (dx, dy) = cr.userToDeviceDistance(3, 4)
+  val (mdx, mdy) = m.transformDistance(3, 4)
+  assert(near(dx, mdx))
+  assert(near(dy, mdy))
+
+@test("a singular matrix set on a context is a failure the context keeps")
+singularContext()
+  val cr = canvas(10, 10)
+  cr.setMatrix(matrix(0, 0, 0, 0, 0, 0))
+  assertEq(code(cr.status()), 5)
+  val c2 = canvas(10, 10)
+  c2.transform(matrix(1, 2, 2, 4, 0, 0))
+  assertEq(code(c2.status()), 5)
+
+@test("a pattern's matrix is the identity until set, and answers what was set")
+patternMatrix()
+  val p = made(linearGradient(0, 0, 1, 0))
+  assertEq(p.matrix(), identityMatrix())
+  val m = matrix(2, 0, 0, 2, 3, 4)
+  p.setMatrix(m)
+  assertEq(p.matrix(), m)
+  assertEq(code(p.status()), 0)
+
+@test("a singular matrix set on a pattern is a failure the pattern keeps")
+singularPattern()
+  val p = made(linearGradient(0, 0, 1, 0))
+  p.setMatrix(matrix(0, 0, 0, 0, 0, 0))
+  assertEq(code(p.status()), 5)
+
+@test("a recording surface's ink extents are the box of what was drawn")
+inkExtents()
+  val s = made(recordingSurface())
+  assertEq(s.inkExtents(), Rectangle(0.0, 0.0, 0.0, 0.0))
+  val cr = made(s.context())
+  cr.rectangle(10, 20, 30, 40)
+  cr.fill()
+  assertEq(s.inkExtents(), Rectangle(10.0, 20.0, 30.0, 40.0))
+  cr.rectangle(0, 0, 5, 5)
+  cr.fill()
+  assertEq(s.inkExtents(), Rectangle(0.0, 0.0, 40.0, 60.0))
+
+@test("a recording surface's ink extents follow the context's transform")
+inkExtentsTransformed()
+  val s = made(recordingSurface(Alpha))
+  val cr = made(s.context())
+  cr.translate(100, 100)
+  cr.scale(2, 2)
+  cr.rectangle(1, 1, 5, 5)
+  cr.fill()
+  assertEq(s.inkExtents(), Rectangle(102.0, 102.0, 10.0, 10.0))
+
+@test("a recording surface is unbounded unless made with extents, which it answers")
+recordingExtents()
+  assertEq(made(recordingSurface()).extents(), None)
+  assertEq(made(recordingSurface(ColorAlpha, None)).extents(), None)
+  val bounded = made(recordingSurface(ColorAlpha, Some(Rectangle(1.0, 2.0, 100.0, 50.0))))
+  assertEq(bounded.extents(), Some(Rectangle(1.0, 2.0, 100.0, 50.0)))
+  assertEq(code(bounded.status()), 0)
+
+@test("a bounded recording surface's ink extents are limited to its bounds")
+recordingClipped()
+  val s = made(recordingSurface(ColorAlpha, Some(Rectangle(0.0, 0.0, 20.0, 20.0))))
+  val cr = made(s.context())
+  cr.rectangle(10, 10, 50, 50)
+  cr.fill()
+  assertEq(s.inkExtents(), Rectangle(10.0, 10.0, 10.0, 10.0))

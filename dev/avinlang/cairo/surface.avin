@@ -68,6 +68,26 @@ class Surface
   // The surface's status as Cairo numbers it: `Success` while it is usable.
   statusKind() -> Status = statusMirror()
 
+  @c(
+    "void cairo_recording_surface_ink_extents(cairo_surface_t *self, out double *x0, out double *y0, out double *width, out double *height)"
+  )
+  private inkExtentsRaw() -> (real, real, real, real)
+
+  // The box of everything a recording surface was drawn with, as a `Rectangle`; zeros while nothing
+  // was drawn, and for any other surface.
+  inkExtents() -> Rectangle =
+    val (x, y, w, h) = inkExtentsRaw()
+    Rectangle(x, y, w, h)
+
+  @c("cairo_bool_t cairo_recording_surface_get_extents(cairo_surface_t *self, out cairo_rectangle_t *extents)")
+  private extentsRaw() -> (bool, Rectangle)
+
+  // The bounds a recording surface was made with; `None` for an unbounded one, and for any surface
+  // that is not recording.
+  extents() -> Option[Rectangle] =
+    val (bounded, r) = extentsRaw()
+    if bounded then Some(r) else None
+
   // Completes any drawing Cairo has deferred, so the surface's memory or file holds it.
   @c("void cairo_surface_flush(cairo_surface_t *self)")
   flush()
@@ -137,7 +157,7 @@ class Surface
     addOutlineRaw(parent, text, link, outlineFlagsCode(flags))
 
 @c("cairo_surface_t *cairo_image_surface_create(cairo_format_t format, int width, int height)")
-private imageSurfaceRaw(format: Format,width: int, height: int) -> Surface
+private imageSurfaceRaw(format: Format, width: int, height: int) -> Surface
 
 // A surface of `width` by `height` pixels in memory, every pixel transparent black (or black, for a
 // format without alpha). A negative size, or one too large for Cairo, is `Err`.
@@ -160,6 +180,14 @@ private svgSurfaceRaw(filename: string, widthInPoints: real, heightInPoints: rea
 // document is complete once the surface is finished. A file that cannot be written is `Err`.
 svgSurface(path: string, widthInPoints: real, heightInPoints: real) -> Result[Surface, CairoError] =
   checked(svgSurfaceRaw(path, widthInPoints, heightInPoints))
+
+@c("cairo_surface_t *cairo_recording_surface_create(cairo_content_t content, const cairo_rectangle_t *extents)")
+private recordingSurfaceRaw(content: Content, extents: Option[Rectangle]) -> Surface
+
+// A surface that records what is drawn on it instead of rasterizing it, bounded by `extents`, or
+// unbounded for `None`. It holds `content`.
+recordingSurface(content: Content = ColorAlpha, extents: Option[Rectangle] = None) -> Result[Surface, CairoError] =
+  checked(recordingSurfaceRaw(content, extents))
 
 // A surface just made, or the failure it holds, the surface closed.
 private checked(made: Surface) -> Result[Surface, CairoError] = made.status() match

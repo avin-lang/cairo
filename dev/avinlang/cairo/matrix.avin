@@ -1,0 +1,103 @@
+module dev.avinlang.cairo
+
+// Matrices, and the plain boxes and extents Cairo measures with. Each is a copy of Cairo's struct,
+// made and read as ordinary values; the functions that change a matrix answer a new one.
+
+// An affine transform of the plane, Cairo's `cairo_matrix_t`: a point (x, y) goes to
+// (`xx` * x + `xy` * y + `x0`, `yx` * x + `yy` * y + `y0`).
+@c(struct: "cairo_matrix_t")
+data Matrix(xx: real, yx: real, xy: real, yy: real, x0: real, y0: real)
+
+// A box: its corner (`x`, `y`) and its size.
+@c(struct: "cairo_rectangle_t")
+data Rectangle(x: real, y: real, width: real, height: real)
+
+// What a piece of text measures, in user units: where its ink begins, how big the ink is, and how far
+// the current point moves after it.
+@c(struct: "cairo_text_extents_t")
+data TextExtents(xBearing: real, yBearing: real, width: real, height: real, xAdvance: real, yAdvance: real)
+
+// What a font measures, in user units: how far it reaches above and below the baseline, the distance
+// between lines, and the widest advance.
+@c(struct: "cairo_font_extents_t")
+data FontExtents(ascent: real, descent: real, height: real, maxXAdvance: real, maxYAdvance: real)
+
+// One glyph to draw: its number in the font, and where its origin goes.
+@c(struct: "cairo_glyph_t")
+data Glyph(index: long, x: real, y: real)
+
+@c(
+  "void cairo_matrix_init(out cairo_matrix_t *matrix, double xx, double yx, double xy, double yy, double x0, double y0)"
+)
+private initRaw(xx: real, yx: real, xy: real, yy: real, x0: real, y0: real) -> Matrix
+
+@c("void cairo_matrix_init_identity(out cairo_matrix_t *matrix)")
+private identityRaw() -> Matrix
+
+@c("void cairo_matrix_init_translate(out cairo_matrix_t *matrix, double tx, double ty)")
+private translationRaw(tx: real, ty: real) -> Matrix
+
+@c("void cairo_matrix_init_scale(out cairo_matrix_t *matrix, double sx, double sy)")
+private scalingRaw(sx: real, sy: real) -> Matrix
+
+@c("void cairo_matrix_init_rotate(out cairo_matrix_t *matrix, double radians)")
+private rotationRaw(radians: real) -> Matrix
+
+@c("void cairo_matrix_translate(inout cairo_matrix_t *matrix, double tx, double ty)")
+private translateRaw(matrix: Matrix, tx: real, ty: real) -> Matrix
+
+@c("void cairo_matrix_scale(inout cairo_matrix_t *matrix, double sx, double sy)")
+private scaleRaw(matrix: Matrix, sx: real, sy: real) -> Matrix
+
+@c("void cairo_matrix_rotate(inout cairo_matrix_t *matrix, double radians)")
+private rotateRaw(matrix: Matrix, radians: real) -> Matrix
+
+@c("cairo_status_t cairo_matrix_invert(inout cairo_matrix_t *matrix)")
+private invertRaw(matrix: Matrix) -> Result[Matrix, int]
+
+@c("void cairo_matrix_multiply(out cairo_matrix_t *result, const cairo_matrix_t *a, const cairo_matrix_t *b)")
+private multiplyRaw(a: Matrix, b: Matrix) -> Matrix
+
+@c("void cairo_matrix_transform_point(const cairo_matrix_t *matrix, inout double *x, inout double *y)")
+private transformPointRaw(matrix: Matrix, x: real, y: real) -> (real, real)
+
+@c("void cairo_matrix_transform_distance(const cairo_matrix_t *matrix, inout double *dx, inout double *dy)")
+private transformDistanceRaw(matrix: Matrix, dx: real, dy: real) -> (real, real)
+
+// The matrix of the six numbers, as Cairo's `cairo_matrix_init` makes it.
+matrix(xx: real, yx: real, xy: real, yy: real, x0: real, y0: real) -> Matrix = initRaw(xx, yx, xy, yy, x0, y0)
+
+// The matrix that leaves every point where it is.
+identityMatrix() -> Matrix = identityRaw()
+
+// The matrix that moves every point by (`tx`, `ty`).
+translationMatrix(tx: real, ty: real) -> Matrix = translationRaw(tx, ty)
+
+// The matrix that stretches the plane by `sx` across and `sy` down.
+scalingMatrix(sx: real, sy: real) -> Matrix = scalingRaw(sx, sy)
+
+// The matrix that turns the plane by `radians`, from the positive x axis towards the positive y.
+rotationMatrix(radians: real) -> Matrix = rotationRaw(radians)
+
+impl Matrix
+  // This matrix with a translation by (`tx`, `ty`) applied first, in the coordinates it maps from.
+  translate(tx: real, ty: real) -> Matrix = translateRaw(self, tx, ty)
+
+  // This matrix with a scale by `sx` and `sy` applied first.
+  scale(sx: real, sy: real) -> Matrix = scaleRaw(self, sx, sy)
+
+  // This matrix with a turn by `radians` applied first.
+  rotate(radians: real) -> Matrix = rotateRaw(self, radians)
+
+  // The matrix that undoes this one; `Err` with Cairo's `InvalidMatrix` where there is none, as for
+  // a matrix that flattens the plane to a line.
+  invert() -> Result[Matrix, CairoError] = invertRaw(self).mapErr(cairoError)
+
+  // The matrix that applies this one and then `other`.
+  multiply(other: Matrix) -> Matrix = multiplyRaw(self, other)
+
+  // Where this matrix sends the point (`x`, `y`).
+  transformPoint(x: real, y: real) -> (real, real) = transformPointRaw(self, x, y)
+
+  // Where this matrix sends the distance vector (`dx`, `dy`): the same, without the translation.
+  transformDistance(dx: real, dy: real) -> (real, real) = transformDistanceRaw(self, dx, dy)

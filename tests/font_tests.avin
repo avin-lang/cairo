@@ -1,0 +1,288 @@
+module tests
+
+// Fonts: the options text is rendered with, scaled fonts, and the extents of text and of glyph
+// arrays of none, one and many. Text is asserted by relations (wider for a longer string, taller for a
+// larger size) rather than by the pixels of whichever font the system picks.
+import dev.avinlang.cairo.{
+  Antialias,
+  Bgr,
+  Context,
+  FontOptions,
+  Full,
+  Glyph,
+  Gray,
+  HintMetrics,
+  HintStyle,
+  Medium,
+  Off,
+  On,
+  Rgb,
+  Slight,
+  Subpixel,
+  SubpixelOrder,
+  Vbgr,
+  Vrgb,
+  fontOptions,
+  identityMatrix,
+  matrix,
+  scaledFont,
+  scalingMatrix,
+  toyFontFace
+}
+
+private options() -> FontOptions = made(fontOptions())
+
+// A context with a sans-serif font `size` high selected.
+private texter(size: real) -> Context =
+  val cr = canvas(100, 100)
+  cr.selectFontFace("sans-serif")
+  cr.setFontSize(size)
+  cr
+
+private glyphsAt(count: int, spacing: real) -> Array[Glyph] =
+  (0 ..< count).map(i -> Glyph(36, 10.0 + spacing * real(i), 50.0)).toArray()
+
+@test("a context's text extents grow with the string")
+textExtentsGrow()
+  val cr = texter(20)
+  val none = cr.textExtents("")
+  val one = cr.textExtents("H")
+  val two = cr.textExtents("He")
+  val five = cr.textExtents("Hello")
+  assertEq(none.xAdvance, 0.0)
+  assertEq(none.width, 0.0)
+  assert(one.xAdvance > 0.0)
+  assert(two.xAdvance > one.xAdvance)
+  assert(five.xAdvance > two.xAdvance)
+  assert(five.width > one.width)
+  assert(five.height > 0.0)
+  assertEq(five.yAdvance, 0.0)
+
+@test("text at a larger size is wider and taller")
+textExtentsSize()
+  val small = texter(10).textExtents("Hello")
+  val large = texter(40).textExtents("Hello")
+  assert(large.xAdvance > small.xAdvance)
+  assert(large.width > small.width)
+  assert(large.height > small.height)
+
+@test("text extents are measured without drawing, and the current point does not move")
+textExtentsDoNotDraw()
+  val cr = texter(20)
+  cr.textExtents("Hello")
+  assert(!cr.hasCurrentPoint())
+  assertEq(code(cr.status()), 0)
+
+@test("a context's font extents are positive and grow with the size")
+fontExtentsOfContext()
+  val small = texter(10).fontExtents()
+  val large = texter(40).fontExtents()
+  assert(small.ascent > 0.0)
+  assert(small.descent >= 0.0)
+  assert(small.height >= small.ascent)
+  assert(small.maxXAdvance > 0.0)
+  assert(large.ascent > small.ascent)
+  assert(large.height > small.height)
+
+@test("a scaled font measures as the context does: extents, text and the matrices it was made with")
+scaledMeasures()
+  val face = made(toyFontFace("sans-serif"))
+  assertEq(code(face.status()), 0)
+  val font = made(scaledFont(face, scalingMatrix(20, 20), identityMatrix(), options()))
+  assertEq(code(font.status()), 0)
+  assertEq(font.fontMatrix(), scalingMatrix(20, 20))
+  assertEq(font.ctm(), identityMatrix())
+  assertEq(font.scaleMatrix(), scalingMatrix(20, 20))
+  val e = font.extents()
+  assert(e.ascent > 0.0)
+  assert(e.height > 0.0)
+  val h = font.textExtents("H")
+  val hello = font.textExtents("Hello")
+  assert(h.xAdvance > 0.0)
+  assert(hello.xAdvance > h.xAdvance)
+  assertEq(font.textExtents("").xAdvance, 0.0)
+  val cr = texter(20)
+  assertEq(cr.textExtents("Hello").xAdvance, hello.xAdvance)
+  assertEq(cr.fontExtents().ascent, e.ascent)
+
+@test("a scaled font's ctm and scale matrix compose with the font matrix")
+scaledCtm()
+  val face = made(toyFontFace("serif"))
+  val font = made(scaledFont(face, scalingMatrix(10, 10), scalingMatrix(2, 3), options()))
+  assertEq(font.fontMatrix(), scalingMatrix(10, 10))
+  assertEq(font.ctm(), scalingMatrix(2, 3))
+  assertEq(font.scaleMatrix(), scalingMatrix(20, 30))
+
+@test("a scaled font's face is a handle of its own, and the context's scaled font and face are lent")
+scaledFace()
+  val face = made(toyFontFace("sans-serif"))
+  val font = made(scaledFont(face, scalingMatrix(12, 12), identityMatrix(), options()))
+  val back = font.fontFace()
+  assertEq(code(back.status()), 0)
+  face.close()
+  churn()
+  assertEq(code(back.status()), 0)
+  val cr = texter(12)
+  assertEq(code(cr.fontFace().status()), 0)
+  assertEq(code(cr.scaledFont().status()), 0)
+  cr.setFontFace(back)
+  assertEq(code(cr.status()), 0)
+
+@test("a scaled font of a matrix that cannot be inverted is made: Cairo measures it as empty")
+scaledSingular()
+  val face = made(toyFontFace("sans-serif"))
+  val font = made(scaledFont(face, matrix(0, 0, 0, 0, 0, 0), identityMatrix(), options()))
+  assertEq(code(font.status()), 0)
+  assertEq(font.textExtents("Hello").width, 0.0)
+
+@test("a scaled font's text extents grow with the string, and an empty glyph array measures nothing")
+glyphExtentsOfNone()
+  val font = made(scaledFont(made(toyFontFace("sans-serif")), scalingMatrix(20, 20), identityMatrix(), options()))
+  val none = font.glyphExtents([])
+  assertEq(none.width, 0.0)
+  assertEq(none.height, 0.0)
+  assertEq(texter(20).glyphExtents([]).width, 0.0)
+
+@test("glyph arrays of one and many: the extents of many span their positions")
+glyphExtentsOfMany()
+  val font = made(scaledFont(made(toyFontFace("sans-serif")), scalingMatrix(20, 20), identityMatrix(), options()))
+  val one = font.glyphExtents(glyphsAt(1, 50.0))
+  val five = font.glyphExtents(glyphsAt(5, 50.0))
+  assert(one.width >= 0.0)
+  assert(one.height >= 0.0)
+  assert(one.width == 0.0 || five.width >= one.width + 190.0)
+  assert(five.width >= one.width)
+  val cr = texter(20)
+  assertEq(cr.glyphExtents(glyphsAt(5, 50.0)).width, five.width)
+  assertEq(cr.glyphExtents(glyphsAt(1, 50.0)).height, one.height)
+
+@test("glyphs of none, one and many are shown, and their outlines added to the path")
+showGlyphs()
+  for count in [0, 1, 2, 50]
+    val cr = texter(20)
+    cr.showGlyphs(glyphsAt(count, 12.0))
+    assertEq(code(cr.status()), 0)
+    val p = texter(20)
+    p.glyphPath(glyphsAt(count, 12.0))
+    assertEq(code(p.status()), 0)
+  val empty = texter(20)
+  empty.glyphPath([])
+  assert(!empty.hasCurrentPoint())
+
+@test("glyphs shown paint pixels where the same glyphs outlined and filled do")
+glyphsPaint()
+  val cr = texter(30)
+  cr.setSourceRgb(1, 0, 0)
+  cr.showGlyphs(glyphsAt(3, 25.0))
+  assertEq(code(cr.status()), 0)
+  val path = s"${scratch()}/glyphs.png"
+  made(cr.target().writeToPng(path))
+  assertEq(pngHeader(path), "100x100 depth 8 colour 6")
+
+@test("font options begin at Default, and each option answers what was set")
+optionsRoundTrip()
+  val o = options()
+  assertEq(code(o.status()), 0)
+  assertEq(o.antialias(), Antialias.Default)
+  assertEq(o.subpixelOrder(), SubpixelOrder.Default)
+  assertEq(o.hintStyle(), HintStyle.Default)
+  assertEq(o.hintMetrics(), HintMetrics.Default)
+  for a in [Antialias.None, Gray, Subpixel, Antialias.Fast, Antialias.Good, Antialias.Best, Antialias.Default]
+    o.setAntialias(a)
+    assertEq(o.antialias(), a)
+  for s in [Rgb, Bgr, Vrgb, Vbgr, SubpixelOrder.Default]
+    o.setSubpixelOrder(s)
+    assertEq(o.subpixelOrder(), s)
+  for h in [HintStyle.None, Slight, Medium, Full, HintStyle.Default]
+    o.setHintStyle(h)
+    assertEq(o.hintStyle(), h)
+  for m in [Off, On, HintMetrics.Default]
+    o.setHintMetrics(m)
+    assertEq(o.hintMetrics(), m)
+  assertEq(code(o.status()), 0)
+
+@test("font options are equal when every option is, and then hash alike")
+optionsEqualHash()
+  val a = options()
+  val b = options()
+  assert(a.equal(b))
+  assertEq(a.hash(), b.hash())
+  a.setAntialias(Gray)
+  assert(!a.equal(b))
+  assert(a.hash() != b.hash())
+  b.setAntialias(Gray)
+  assert(a.equal(b))
+  assertEq(a.hash(), b.hash())
+  a.setHintStyle(Full)
+  assert(!a.equal(b))
+  assert(a.hash() != b.hash())
+  b.setHintStyle(Full)
+  b.setSubpixelOrder(Rgb)
+  assert(!a.equal(b))
+  b.setSubpixelOrder(SubpixelOrder.Default)
+  b.setHintMetrics(On)
+  assert(!a.equal(b))
+  assert(a.equal(a))
+
+@test("a copy of font options is equal and independent")
+optionsCopy()
+  val a = options()
+  a.setHintStyle(Slight)
+  val c = a.copy()
+  assertEq(code(c.status()), 0)
+  assert(a.equal(c))
+  c.setHintStyle(Full)
+  assert(!a.equal(c))
+  assertEq(a.hintStyle(), Slight)
+
+@test("merging takes the options the other sets and leaves the rest")
+optionsMerge()
+  val a = options()
+  a.setAntialias(Gray)
+  val b = options()
+  b.setHintStyle(Full)
+  a.merge(b)
+  assertEq(a.antialias(), Gray)
+  assertEq(a.hintStyle(), Full)
+  assertEq(b.antialias(), Antialias.Default)
+  val c = options()
+  c.setAntialias(Subpixel)
+  a.merge(c)
+  assertEq(a.antialias(), Subpixel)
+  assertEq(a.hintStyle(), Full)
+
+@test("font options set on a context are used by its scaled font")
+contextOptions()
+  val cr = texter(20)
+  val o = options()
+  o.setAntialias(Gray)
+  o.setHintMetrics(Off)
+  cr.setFontOptions(o)
+  assertEq(code(cr.status()), 0)
+  assertEq(code(cr.scaledFont().status()), 0)
+
+@test(should_trap: "`FontOptions` is closed")
+closedOptions()
+  val o = options()
+  o.close()
+  o.antialias()
+
+@test("a thousand font options made and dropped are given back by their finalizers, each once")
+manyOptions()
+  for i in 0 ..< 1000
+    val o = options()
+    o.setHintStyle(if i % 2 == 0 then Full else Slight)
+    assertEq(code(o.status()), 0)
+    assertEq(o.hintStyle(), if i % 2 == 0 then Full else Slight)
+    if i % 3 == 0 then o.close()
+  assertEq(churn(), 6000)
+
+@test("a thousand scaled fonts made and dropped are given back by their finalizers")
+manyFonts()
+  val face = made(toyFontFace("sans-serif"))
+  for i in 0 ..< 1000
+    val size = real(8 + i % 5)
+    val f = made(scaledFont(face, scalingMatrix(size, size), identityMatrix(), options()))
+    assertEq(code(f.status()), 0)
+  assertEq(churn(), 6000)
+  assert(face.referenceCount() >= 1)

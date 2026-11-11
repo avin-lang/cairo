@@ -1,0 +1,180 @@
+module dev.avinlang.cairo
+
+// Fonts: the options text is rendered with, font faces, and scaled fonts, a face at a size and a
+// transform, which measure text and glyphs.
+
+// How the pixels of a glyph's edges are coloured on a display whose pixels are made of stripes.
+@c(enum: "cairo_subpixel_order_t", prefix: "CAIRO_SUBPIXEL_ORDER_")
+data SubpixelOrder
+  Default
+  Rgb
+  Bgr
+  Vrgb
+  Vbgr
+
+// How far a glyph's outline is moved to fit the pixel grid.
+@c(enum: "cairo_hint_style_t", prefix: "CAIRO_HINT_STYLE_")
+data HintStyle
+  Default
+  None
+  Slight
+  Medium
+  Full
+
+// Whether the advance of a glyph is rounded to whole pixels.
+@c(enum: "cairo_hint_metrics_t", prefix: "CAIRO_HINT_METRICS_")
+data HintMetrics
+  Default
+  Off
+  On
+
+// Font options, counted by Cairo's copy of them: how text is smoothed, hinted and measured. The
+// handle owns its options and gives them back when it is collected, or at once by `close()`.
+@c(type: "cairo_font_options_t *", release: "cairo_font_options_destroy")
+class FontOptions
+  @c("cairo_status_t cairo_font_options_status(cairo_font_options_t *self)")
+  private statusRaw() -> Result[unit, int]
+
+  // `Ok` while the options are usable, and the failure they hold otherwise.
+  status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
+
+  // A copy of the options, a handle of its own.
+  @c("cairo_font_options_t *cairo_font_options_copy(const cairo_font_options_t *self)")
+  copy() -> FontOptions
+
+  // Takes from `other` each option that `other` sets and that is not left at `Default`.
+  @c("void cairo_font_options_merge(cairo_font_options_t *self, const cairo_font_options_t *other)")
+  merge(other: FontOptions)
+
+  // Whether the two have every option the same.
+  @c("cairo_bool_t cairo_font_options_equal(const cairo_font_options_t *self, const cairo_font_options_t *other)")
+  equal(other: FontOptions) -> bool
+
+  // A number that is the same for options that are `equal`.
+  @c("unsigned long cairo_font_options_hash(const cairo_font_options_t *self)")
+  hash() -> long
+
+  @c("void cairo_font_options_set_antialias(cairo_font_options_t *self, cairo_antialias_t antialias)")
+  setAntialias(antialias: Antialias)
+
+  @c("cairo_antialias_t cairo_font_options_get_antialias(const cairo_font_options_t *self)")
+  antialias() -> Antialias
+
+  @c("void cairo_font_options_set_subpixel_order(cairo_font_options_t *self, cairo_subpixel_order_t subpixel_order)")
+  setSubpixelOrder(order: SubpixelOrder)
+
+  @c("cairo_subpixel_order_t cairo_font_options_get_subpixel_order(const cairo_font_options_t *self)")
+  subpixelOrder() -> SubpixelOrder
+
+  @c("void cairo_font_options_set_hint_style(cairo_font_options_t *self, cairo_hint_style_t hint_style)")
+  setHintStyle(style: HintStyle)
+
+  @c("cairo_hint_style_t cairo_font_options_get_hint_style(const cairo_font_options_t *self)")
+  hintStyle() -> HintStyle
+
+  @c("void cairo_font_options_set_hint_metrics(cairo_font_options_t *self, cairo_hint_metrics_t hint_metrics)")
+  setHintMetrics(metrics: HintMetrics)
+
+  @c("cairo_hint_metrics_t cairo_font_options_get_hint_metrics(const cairo_font_options_t *self)")
+  hintMetrics() -> HintMetrics
+
+@c("cairo_font_options_t *cairo_font_options_create(void)")
+private fontOptionsRaw() -> FontOptions
+
+// Font options with every option left at `Default`. `Err` where Cairo cannot make them.
+fontOptions() -> Result[FontOptions, CairoError] =
+  val made = fontOptionsRaw()
+  made.status() match
+    Err(e) ->
+      made.close()
+      Err(e)
+    Ok(_) -> Ok(made)
+
+// A font face, counted by Cairo: a typeface before it has a size.
+@c(type: "cairo_font_face_t *", release: "cairo_font_face_destroy", retain: "cairo_font_face_reference")
+class FontFace
+  @c("cairo_status_t cairo_font_face_status(cairo_font_face_t *self)")
+  private statusRaw() -> Result[unit, int]
+
+  // `Ok` while the face is usable, and the failure it holds otherwise.
+  status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
+
+  // How many references Cairo counts on the face.
+  @c("unsigned int cairo_font_face_get_reference_count(cairo_font_face_t *self)")
+  referenceCount() -> long
+
+@c(
+  "cairo_font_face_t *cairo_toy_font_face_create(const char *family, cairo_font_slant_t slant, cairo_font_weight_t weight)"
+)
+private toyFaceRaw(family: string, slant: FontSlant, weight: FontWeight) -> FontFace
+
+// The face of the font of `family` the system finds, such as `serif`, in a slant and weight. `Err`
+// where Cairo cannot make it.
+toyFontFace(family: string, slant: FontSlant = Upright, weight: FontWeight = Regular) -> Result[FontFace, CairoError] =
+  val made = toyFaceRaw(family, slant, weight)
+  made.status() match
+    Err(e) ->
+      made.close()
+      Err(e)
+    Ok(_) -> Ok(made)
+
+// A font face at a size and a transform, counted by Cairo. It measures text and glyphs.
+@c(type: "cairo_scaled_font_t *", release: "cairo_scaled_font_destroy", retain: "cairo_scaled_font_reference")
+class ScaledFont
+  @c("cairo_status_t cairo_scaled_font_status(cairo_scaled_font_t *self)")
+  private statusRaw() -> Result[unit, int]
+
+  // `Ok` while the font is usable, and the failure it holds otherwise.
+  status() -> Result[unit, CairoError] = statusRaw().mapErr(cairoError)
+
+  // How many references Cairo counts on the font.
+  @c("unsigned int cairo_scaled_font_get_reference_count(cairo_scaled_font_t *self)")
+  referenceCount() -> long
+
+  // What the font measures, in user units.
+  @c("void cairo_scaled_font_extents(cairo_scaled_font_t *self, out cairo_font_extents_t *extents)")
+  extents() -> FontExtents
+
+  // What `text` measures in the font.
+  @c(
+    "void cairo_scaled_font_text_extents(cairo_scaled_font_t *self, const char *utf8, out cairo_text_extents_t *extents)"
+  )
+  textExtents(text: string) -> TextExtents
+
+  // What the glyphs measure together; zeros for none.
+  @c(
+    "void cairo_scaled_font_glyph_extents(cairo_scaled_font_t *self, const cairo_glyph_t *glyphs, length(glyphs) int num_glyphs, out cairo_text_extents_t *extents)"
+  )
+  glyphExtents(glyphs: Array[Glyph]) -> TextExtents
+
+  // The face the font was made from: a handle of its own on it.
+  @c("cairo_font_face_t *cairo_scaled_font_get_font_face(cairo_scaled_font_t *self)", borrowed)
+  fontFace() -> FontFace
+
+  // The matrix that scales the font's units to user units, as made with the size.
+  @c("void cairo_scaled_font_get_font_matrix(cairo_scaled_font_t *self, out cairo_matrix_t *font_matrix)")
+  fontMatrix() -> Matrix
+
+  // The matrix from user units to device units the font was made for.
+  @c("void cairo_scaled_font_get_ctm(cairo_scaled_font_t *self, out cairo_matrix_t *ctm)")
+  ctm() -> Matrix
+
+  // The font matrix and the ctm composed.
+  @c("void cairo_scaled_font_get_scale_matrix(cairo_scaled_font_t *self, out cairo_matrix_t *scale_matrix)")
+  scaleMatrix() -> Matrix
+
+@c(
+  "cairo_scaled_font_t *cairo_scaled_font_create(cairo_font_face_t *font_face, const cairo_matrix_t *font_matrix, const cairo_matrix_t *ctm, const cairo_font_options_t *options)"
+)
+private scaledFontRaw(face: FontFace, fontMatrix: Matrix, ctm: Matrix, options: FontOptions) -> ScaledFont
+
+// The face at the size and transform `fontMatrix` gives, for a surface whose transform is `ctm`,
+// rendered with `options`. `Err` where Cairo cannot make it, such as for a `fontMatrix` that
+// cannot be inverted.
+scaledFont(face: FontFace, fontMatrix: Matrix, ctm: Matrix, options: FontOptions) -> Result[ScaledFont, CairoError] =
+  val made = scaledFontRaw(face, fontMatrix, ctm, options)
+  made.status() match
+    Err(e) ->
+      made.close()
+      Err(e)
+    Ok(_) -> Ok(made)

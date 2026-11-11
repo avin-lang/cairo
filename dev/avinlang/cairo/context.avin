@@ -263,3 +263,58 @@ class Context
   // How many lengths the dash pattern has; 0 for a solid line.
   @c("int cairo_get_dash_count(cairo_t *self)")
   dashCount() -> int
+
+  // The transform from user coordinates to the surface's.
+  @c("void cairo_get_matrix(cairo_t *self, out cairo_matrix_t *matrix)")
+  matrix() -> Matrix
+
+  // Replaces the transform from user coordinates to the surface's. A matrix that cannot be inverted
+  // is a failure the context keeps.
+  @c("void cairo_set_matrix(cairo_t *self, const cairo_matrix_t *matrix)")
+  setMatrix(matrix: Matrix)
+
+  // Applies `matrix` to the user's coordinates, before the transform already there.
+  @c("void cairo_transform(cairo_t *self, const cairo_matrix_t *matrix)")
+  transform(matrix: Matrix)
+
+  // Sets the transform to the identity: the user's coordinates are the surface's.
+  @c("void cairo_identity_matrix(cairo_t *self)")
+  identityMatrix()
+
+  // What `text` would measure if shown with the current font, in user units.
+  @c("void cairo_text_extents(cairo_t *self, const char *utf8, out cairo_text_extents_t *extents)")
+  textExtents(text: string) -> TextExtents
+
+  // What the current font measures, in user units.
+  @c("void cairo_font_extents(cairo_t *self, out cairo_font_extents_t *extents)")
+  fontExtents() -> FontExtents
+
+  // What the glyphs would measure together if shown with the current font.
+  @c(
+    "void cairo_glyph_extents(cairo_t *self, const cairo_glyph_t *glyphs, length(glyphs) int num_glyphs, out cairo_text_extents_t *extents)"
+  )
+  glyphExtents(glyphs: Array[Glyph]) -> TextExtents
+
+  // Draws the glyphs with the current font and source.
+  @c("void cairo_show_glyphs(cairo_t *self, const cairo_glyph_t *glyphs, length(glyphs) int num_glyphs)")
+  showGlyphs(glyphs: Array[Glyph])
+
+  // Adds the outlines of the glyphs to the path.
+  @c("void cairo_glyph_path(cairo_t *self, const cairo_glyph_t *glyphs, length(glyphs) int num_glyphs)")
+  glyphPath(glyphs: Array[Glyph])
+
+  // The face drawing text from now on: a handle of its own on it.
+  @c("cairo_font_face_t *cairo_get_font_face(cairo_t *self)", borrowed)
+  fontFace() -> FontFace
+
+  // Draws text with `face` from now on.
+  @c("void cairo_set_font_face(cairo_t *self, cairo_font_face_t *font_face)")
+  setFontFace(face: FontFace)
+
+  // Draws text with the options from now on.
+  @c("void cairo_set_font_options(cairo_t *self, const cairo_font_options_t *options)")
+  setFontOptions(options: FontOptions)
+
+  // The font drawing text now: a handle of its own on it.
+  @c("cairo_scaled_font_t *cairo_get_scaled_font(cairo_t *self)", borrowed)
+  scaledFont() -> ScaledFont

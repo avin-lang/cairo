@@ -85,6 +85,23 @@ main()
   bound: Avin's C bindings cannot express an array C fills whose length comes from another call.
 - **Patterns**: `solidRgb`, `solidRgba`, `linearGradient` and `radialGradient`, with
   `addColorStopRgb` and `addColorStopRgba`.
+- **Matrices**: `Matrix` mirrors `cairo_matrix_t`, made by `matrix`, `identityMatrix`,
+  `translationMatrix`, `scalingMatrix` and `rotationMatrix`, with `translate`, `scale`, `rotate`,
+  `invert` (`Err` with `InvalidMatrix` for a singular one), `multiply`, `transformPoint` and
+  `transformDistance` answering new values. A context has `matrix`, `setMatrix`, `transform` and
+  `identityMatrix`, and a pattern `matrix` and `setMatrix`.
+- **Text measures and glyphs**: `TextExtents`, `FontExtents`, `Rectangle` and `Glyph` mirror Cairo's
+  structs; a context has `textExtents`, `fontExtents`, `glyphExtents`, `showGlyphs` and `glyphPath`
+  (glyph arrays of any length, none included), `fontFace`, `setFontFace`, `setFontOptions` and
+  `scaledFont`.
+- **Fonts**: `fontOptions()` with the antialias, `SubpixelOrder`, `HintStyle` and `HintMetrics` options
+  getting and setting, `merge`, `copy`, `equal` and `hash`; `toyFontFace`; and `scaledFont(face,
+  fontMatrix, ctm, options)` with `extents`, `textExtents`, `glyphExtents`, `fontFace`, `fontMatrix`,
+  `ctm` and `scaleMatrix`. `cairo_scaled_font_text_to_glyphs` is not bound: it answers two arrays C
+  allocates (glyphs and clusters), a binding frees one `array:`, and a NULL cannot be passed to skip
+  the clusters.
+- **Recording surfaces**: `recordingSurface(content, extents)` (unbounded for `None`), and
+  `inkExtents` and `extents` on a surface.
 - `version()` and `versionString()`.
 
 Surfaces, contexts and patterns are handles on Cairo's counted objects: each is given back to Cairo

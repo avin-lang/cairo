@@ -102,6 +102,11 @@ main()
   the clusters.
 - **Recording surfaces**: `recordingSurface(content, extents)` (unbounded for `None`), and
   `inkExtents` and `extents` on a surface.
+- **Paths**: `copyPath` and `copyPathFlat` answer a `Path` of typed `Segment`s (`MoveTo`, `LineTo`,
+  `CurveTo`, `ClosePath`), or `Err`; `curveTo` adds a curve, `appendPath` adds a copied path back, and
+  `copyClipRectangleList` answers the clip as a `Vector[Rectangle]`, or `Err` (`ClipNotRepresentable`
+  for a clip that is not device-aligned rectangles). Cairo's path and rectangle list are walked once
+  and freed by the collector with their handles.
 - `version()` and `versionString()`.
 
 Surfaces, contexts and patterns are handles on Cairo's counted objects: each is given back to Cairo

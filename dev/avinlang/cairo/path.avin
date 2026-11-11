@@ -1,0 +1,92 @@
+module dev.avinlang.cairo
+
+// Paths copied out of a context, and the clip as a list of rectangles. Cairo answers each as a
+// structure of its own, freed whole; what the program gets is immutable data.
+
+// One step of a path, in user units.
+data Segment
+  // Starts a new sub-path at a point.
+  MoveTo(x: real, y: real)
+  // A straight line from the current point.
+  LineTo(x: real, y: real)
+  // A cubic Bezier curve from the current point, by two control points to an end point.
+  CurveTo(x1: real, y1: real, x2: real, y2: real, x3: real, y3: real)
+  // A line back to the start of the sub-path, closing it.
+  ClosePath
+
+// Cairo's `cairo_path_t`: a status, and `num_data` elements of a union of a header (the kind of a
+// segment and its length in elements, itself included) and a point.
+@c(type: "cairo_path_t *", release: "cairo_path_destroy")
+class PathData
+  @c(field: "status")
+  status() -> int
+  @c(field: "num_data")
+  count() -> int
+  @c(field: "data[i].header.type", bound: "self->num_data")
+  kind(i: int) -> int
+  @c(field: "data[i].header.length", bound: "self->num_data")
+  span(i: int) -> int
+  @c(field: "data[i].point.x", bound: "self->num_data")
+  x(i: int) -> real
+  @c(field: "data[i].point.y", bound: "self->num_data")
+  y(i: int) -> real
+
+// A path: its segments in order. It also keeps Cairo's own copy, which `appendPath` hands back,
+// and which is given back to Cairo when the path is collected.
+class Path(val segments: Vector[Segment], handle: PathData)
+  // Cairo's own copy of the path, which `Context.appendPath` hands back to Cairo.
+  raw() -> PathData = handle
+
+  // Whether the path has no segments.
+  isEmpty() -> bool = segments.isEmpty()
+
+  // The number of segments.
+  size() -> int = segments.length()
+
+// Cairo's `cairo_rectangle_list_t`.
+@c(type: "cairo_rectangle_list_t *", release: "cairo_rectangle_list_destroy")
+private class RectangleListData
+  @c(field: "status")
+  status() -> int
+  @c(field: "num_rectangles")
+  count() -> int
+  @c(field: "rectangles[i].x", bound: "self->num_rectangles")
+  x(i: int) -> real
+  @c(field: "rectangles[i].y", bound: "self->num_rectangles")
+  y(i: int) -> real
+  @c(field: "rectangles[i].width", bound: "self->num_rectangles")
+  width(i: int) -> real
+  @c(field: "rectangles[i].height", bound: "self->num_rectangles")
+  height(i: int) -> real
+
+// The segment that starts at element `i` of the data, and its length in elements.
+private segmentAt(d: PathData, i: int) -> (Segment, int) =
+  val n = d.span(i)
+  d.kind(i) match
+    0 -> (MoveTo(d.x(i + 1), d.y(i + 1)), n)
+    1 -> (LineTo(d.x(i + 1), d.y(i + 1)), n)
+    2 -> (CurveTo(d.x(i + 1), d.y(i + 1), d.x(i + 2), d.y(i + 2), d.x(i + 3), d.y(i + 3)), n)
+    _ -> (ClosePath, n)
+
+// Walks the data once, header by header.
+private walk(d: PathData) -> Vector[Segment] =
+  var out: Vector[Segment] = []
+  var i = 0
+  while i < d.count()
+    val (segment, n) = segmentAt(d, i)
+    out = out :+ segment
+    i += n
+  out
+
+private pathOf(d: PathData) -> Result[Path, CairoError] =
+  val code = d.status()
+  if code != 0 then Err(cairoError(code)) else Ok(Path(walk(d), d))
+
+private rectanglesOf(d: RectangleListData) -> Result[Vector[Rectangle], CairoError] =
+  val code = d.status()
+  if code != 0 then Err(cairoError(code))
+  else
+    var out: Vector[Rectangle] = []
+    for i in 0 ..< d.count()
+      out = out :+ Rectangle(d.x(i), d.y(i), d.width(i), d.height(i))
+    Ok(out)

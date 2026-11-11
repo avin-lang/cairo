@@ -82,6 +82,36 @@ class Context
   @c("void cairo_close_path(cairo_t *self)")
   closePath()
 
+  // Adds a cubic Bezier curve from the current point, by two control points to an end point.
+  @c("void cairo_curve_to(cairo_t *self, double x1, double y1, double x2, double y2, double x3, double y3)")
+  curveTo(x1: real, y1: real, x2: real, y2: real, x3: real, y3: real)
+
+  @c("cairo_path_t *cairo_copy_path(cairo_t *self)")
+  private copyPathRaw() -> PathData
+
+  @c("cairo_path_t *cairo_copy_path_flat(cairo_t *self)")
+  private copyPathFlatRaw() -> PathData
+
+  @c("cairo_rectangle_list_t *cairo_copy_clip_rectangle_list(cairo_t *self)")
+  private copyClipRectangleListRaw() -> RectangleListData
+
+  @c("void cairo_append_path(cairo_t *self, const cairo_path_t *path)")
+  private appendPathRaw(path: PathData)
+
+  // A copy of the current path. `Err` where the context has failed.
+  copyPath() -> Result[Path, CairoError] = pathOf(copyPathRaw())
+
+  // A copy of the current path with each curve replaced by lines, so it holds only `MoveTo`,
+  // `LineTo` and `ClosePath`.
+  copyPathFlat() -> Result[Path, CairoError] = pathOf(copyPathFlatRaw())
+
+  // Adds a copied path to the current path.
+  appendPath(path: Path) = appendPathRaw(path.raw())
+
+  // The clip as rectangles, when it is one: `Err` with `ClipNotRepresentable` for a clip that is not
+  // made of device-aligned rectangles, such as one under a rotation.
+  copyClipRectangleList() -> Result[Vector[Rectangle], CairoError] = rectanglesOf(copyClipRectangleListRaw())
+
   // Whether the path has a current point: something was added since it was last emptied.
   @c("cairo_bool_t cairo_has_current_point(cairo_t *self)")
   hasCurrentPoint() -> bool

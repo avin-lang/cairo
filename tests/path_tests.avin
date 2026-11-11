@@ -1,0 +1,84 @@
+module tests
+
+// Copied paths: a path's segments exactly, flattened curves, appending a copy back, an empty path,
+// the clip as a list of rectangles, and the copies freed under collection.
+import avin.math.Pi
+import dev.avinlang.cairo.{ClosePath, CurveTo, LineTo, MoveTo, Path, Rectangle}
+
+private shape() -> Path =
+  val cr = canvas(100, 100)
+  cr.rectangle(10, 20, 30, 40)
+  cr.moveTo(50, 50)
+  cr.curveTo(60, 50, 70, 60, 80, 80)
+  made(cr.copyPath())
+
+@test("a rectangle and a curve copy out as their segments, exactly")
+copiesSegments()
+  val p = shape()
+  assertEq(p.size(), 7)
+  assertEq(p.segments(0), MoveTo(10.0, 20.0))
+  assertEq(p.segments(1), LineTo(40.0, 20.0))
+  assertEq(p.segments(2), LineTo(40.0, 60.0))
+  assertEq(p.segments(3), LineTo(10.0, 60.0))
+  assertEq(p.segments(4), ClosePath)
+  assertEq(p.segments(5), MoveTo(50.0, 50.0))
+  assertEq(p.segments(6), CurveTo(60.0, 50.0, 70.0, 60.0, 80.0, 80.0))
+
+@test("a path flattened has lines where the curve was, and no curve")
+flatCopy()
+  val cr = canvas(100, 100)
+  cr.moveTo(0, 0)
+  cr.curveTo(0, 50, 50, 100, 100, 100)
+  val p = made(cr.copyPathFlat())
+  assertEq(p.segments(0), MoveTo(0.0, 0.0))
+  assert(p.size() > 3)
+  for s in p.segments.drop(1)
+    s match
+      LineTo(_, _) -> ()
+      _ -> fail(s"not a line: $s")
+  p.segments(p.size() - 1) match
+    LineTo(x, y) ->
+      assertEq(x, 100.0)
+      assertEq(y, 100.0)
+    _ -> fail("last segment is not a line")
+
+@test("an empty path copies as no segments")
+emptyPath()
+  val p = made(canvas(10, 10).copyPath())
+  assert(p.isEmpty())
+  assertEq(p.size(), 0)
+  assert(made(canvas(10, 10).copyPathFlat()).isEmpty())
+
+@test("a copied path appended to a fresh context gives the same path back")
+appendRoundTrip()
+  val p = shape()
+  val cr = canvas(100, 100)
+  cr.appendPath(p)
+  assertEq(made(cr.copyPath()).segments, p.segments)
+  cr.appendPath(p)
+  assertEq(made(cr.copyPath()).size(), 14)
+
+@test("the clip of a rectangle is that rectangle")
+rectangularClip()
+  val cr = canvas(100, 100)
+  cr.rectangle(10, 20, 30, 40)
+  cr.clip()
+  assertEq(made(cr.copyClipRectangleList()), [Rectangle(10.0, 20.0, 30.0, 40.0)])
+
+@test("a clip that is not a rectangle is not representable")
+rotatedClip()
+  val cr = canvas(100, 100)
+  cr.rotate(Pi / 6)
+  cr.rectangle(10, 20, 30, 40)
+  cr.clip()
+  assertEq(code(cr.copyClipRectangleList()), 22)
+
+@test("a thousand copies are each freed once under collection")
+manyCopies()
+  var total = 0
+  for i in 0 ..< 1000
+    val p = shape()
+    total += p.size()
+    if i % 100 == 0 then churn()
+  assertEq(total, 7000)
+  assertEq(shape().segments.length(), 7)

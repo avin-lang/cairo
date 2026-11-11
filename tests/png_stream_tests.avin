@@ -1,0 +1,97 @@
+module tests
+
+// PNG images in memory: a surface written to bytes and read back, pixel for pixel, the same bytes the
+// file holds, sizes from one pixel to many, and bytes that are not a PNG image.
+import dev.avinlang.cairo.{A8, Argb32, Format, Rgb24, Surface, imageSurface, imageSurfaceFromPng}
+
+// Every byte of the surface's pixels, row by row.
+private pixelsOf(s: Surface) -> Array[byte] = s.pixels().getOrElse(fail("not an image")).copy()
+
+@test("a surface written to memory reads back pixel-equal, the same size and format")
+pngRoundTrip()
+  val drawn = squares()
+  val png = made(drawn.toPng())
+  assert(isPng(png))
+  val back = made(imageSurfaceFromPng(png))
+  assertEq(back.width(), 120)
+  assertEq(back.height(), 120)
+  assertEq(back.format(), Some(Argb32))
+  assertEq(pixelsOf(back), pixelsOf(drawn))
+
+@test("the bytes in memory are the bytes writeToPng puts in a file")
+sameAsFile()
+  val drawn = squares()
+  val path = s"${scratch()}/squares.png"
+  made(drawn.writeToPng(path))
+  assertEq(made(drawn.toPng()), bytesOf(path))
+
+// The surface drawn with a translucent rectangle on it.
+private drawnIn(format: Format) -> Surface =
+  val s = made(imageSurface(format, 9, 5))
+  val cr = made(s.context())
+  cr.setSourceRgba(1, 0.5, 0.25, 0.75)
+  cr.rectangle(1, 1, 4, 2)
+  cr.fill()
+  s
+
+// The colour bytes of an RGB24 image's pixels, without the byte of each that is unused.
+private colours(pixels: Array[byte]) -> Vector[byte] =
+  (0 ..< pixels.length()).filter(i -> i % 4 != 3).map(i -> pixels(i)).toVector()
+
+@test("an opaque surface reads back as RGB24 with its colours")
+opaqueFormat()
+  val rgb = drawnIn(Rgb24)
+  val back = made(imageSurfaceFromPng(made(rgb.toPng())))
+  assertEq(back.format(), Some(Rgb24))
+  assertEq((back.width(), back.height()), (9, 5))
+  assertEq(colours(pixelsOf(back)), colours(pixelsOf(rgb)))
+
+@test("an alpha-only surface is written as grey, and reads back as RGB24 with each grey its alpha")
+alphaFormat()
+  val alpha = drawnIn(A8)
+  val back = made(imageSurfaceFromPng(made(alpha.toPng())))
+  assertEq(back.format(), Some(Rgb24))
+  assertEq((back.width(), back.height()), (9, 5))
+  val a = pixelsOf(alpha)
+  val rgb = pixelsOf(back)
+  var inked = 0
+  for y in 0 ..< 5
+    for x in 0 ..< 9
+      val want = a(y * alpha.stride() + x)
+      if int(want) != 0 then inked += 1
+      for c in 0 ..< 3
+        assertEq(rgb(y * back.stride() + x * 4 + c), want)
+  assertEq(inked, 8)
+
+@test("a one-pixel image and a wide one both round-trip")
+sizes()
+  for (w, h) in [(1, 1), (1000, 3)]
+    val s = made(imageSurface(Argb32, w, h))
+    val cr = made(s.context())
+    cr.setSourceRgb(0, 1, 0)
+    cr.paint()
+    val back = made(imageSurfaceFromPng(made(s.toPng())))
+    assertEq((back.width(), back.height()), (w, h))
+    assertEq(pixelsOf(back), pixelsOf(s))
+
+@test("bytes that are not a PNG image, none at all, and an image cut short are Err")
+notPng()
+  assertEq(code(imageSurfaceFromPng("".bytes().toArray())), 10)
+  assert(code(imageSurfaceFromPng("not a png at all".bytes().toArray())) != 0)
+  val png = made(squares().toPng())
+  assert(code(imageSurfaceFromPng(png.slice(0, png.length() / 2))) != 0)
+  assert(code(imageSurfaceFromPng(png.slice(0, 8))) != 0)
+
+@test("a finished surface is Err with SurfaceFinished, and nothing is written")
+finishedToPng()
+  val s = made(imageSurface(Argb32, 4, 4))
+  made(s.finish())
+  assertEq(code(s.toPng()), 12)
+
+@test("a hundred images written and read under collection are each whole")
+manyImages()
+  val drawn = squares()
+  val want = pixelsOf(drawn)
+  for i in 0 ..< 100
+    assertEq(pixelsOf(made(imageSurfaceFromPng(made(drawn.toPng())))), want)
+    if i % 10 == 0 then churn()

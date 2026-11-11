@@ -1,6 +1,6 @@
 module dev.avinlang.cairo
 
-import avin.c.{ByteBlock, MutByteView}
+import avin.c.{ByteBlock, ByteView, MutByteView}
 
 // Surfaces: what Cairo draws on. An image surface holds pixels in memory and writes them to a PNG
 // file; a PDF or SVG surface writes a document to the file it was made with as it is drawn on, and
@@ -134,6 +134,23 @@ class Surface
     status()?
     writePngRaw(path).mapErr(cairoError)
 
+  @c(
+    "cairo_status_t cairo_surface_write_to_png_stream(cairo_surface_t *self, cairo_status_t (*write)(userdata void *closure, const unsigned char *data, length(data) unsigned int length), userdata void *closure)"
+  )
+  private writePngStream(write: (ByteView) -> Status) -> Result[unit, int]
+
+  // The surface's pixels as a PNG image in memory, the bytes `writeToPng` would write to a file.
+  toPng() -> Result[Array[byte], CairoError] =
+    status()?
+    val out = Buffer[byte]()
+
+    collect(chunk: ByteView) -> Status =
+      out.appendAll(chunk.copy())
+      Success
+
+    writePngStream(collect).mapErr(cairoError)?
+    Ok(out.toArray())
+
   @c("void cairo_surface_finish(cairo_surface_t *self)")
   private finishRaw()
 
@@ -197,18 +214,21 @@ private imageSurfaceRaw(format: Format, width: int, height: int) -> Surface
 imageSurface(format: Format, width: int, height: int) -> Result[Surface, CairoError] =
   checked(imageSurfaceRaw(format, width, height))
 
+// Cairo answers a surface it could not make as a surface in error, whose status is what telling it of
+// the block answers: so the binding answers that status as the error, and keeps nothing.
 @c(
   "cairo_surface_t *cairo_image_surface_create_for_data(unsigned char *pixels, cairo_format_t format, int width, int height, int stride)",
   keeps: "pixels"
 )
-private imageSurfaceOverRaw(pixels: ByteBlock, format: Format, width: int, height: int, stride: int) -> Surface
+private surfaceForData(pixels: ByteBlock, format: Format, width: int, height: int, stride: int) -> Result[Surface, int]
 
 // A surface of `width` by `height` pixels in `format` drawing straight into `pixels`, `stride` bytes to
 // a row, which the surface keeps for as long as Cairo holds it. Cairo wants `stride` to be what
-// `formatStrideForWidth` answers for the width, or a larger multiple of 4. A block holding fewer than
-// `height * stride` bytes is `Err` with `InvalidSize`, as is a size Cairo refuses; a stride that is
-// not a multiple of 4, is smaller than the width's row, or is negative is `Err` with `InvalidStride`.
-// The checks are made here because a surface Cairo refuses cannot keep the block.
+// `formatStrideForWidth` answers for the width, or a larger multiple of 4, and answers `Err` with
+// `InvalidStride` for any other, and with `InvalidSize` for a size it cannot hold. Cairo is never told
+// how long the block is, so two checks are made here to keep it inside the block: a block holding
+// fewer than `height * stride` bytes is `Err` with `InvalidSize`, and a negative stride, which Cairo
+// would take as rows running back from the block's start, is `Err` with `InvalidStride`.
 imageSurfaceOver(
   pixels: ByteBlock,
   format: Format,
@@ -216,11 +236,29 @@ imageSurfaceOver(
   height: int,
   stride: int
 ) -> Result[Surface, CairoError] =
-  if width < 0 || height < 0 || width > 32767 || height > 32767 then Err(cairoError(invalidSize))
-  else if stride < formatStrideForWidth(format, width).getOrElse(0) || stride % 4 != 0 then
-    Err(cairoError(invalidStride))
+  if stride < 0 then Err(cairoError(invalidStride))
   else if long(pixels.length()) < long(height) * long(stride) then Err(cairoError(invalidSize))
-  else checked(imageSurfaceOverRaw(pixels, format, width, height, stride))
+  else surfaceForData(pixels, format, width, height, stride).mapErr(cairoError)
+
+@c(
+  "cairo_surface_t *cairo_image_surface_create_from_png_stream(cairo_status_t (*read)(userdata void *closure, unsigned char *data, length(data) unsigned int length), userdata void *closure)"
+)
+private readPngStream(read: (MutByteView) -> Status) -> Surface
+
+// An image surface holding the pixels of the PNG image `png`, read from memory. Bytes that are not a
+// PNG image, or that end before it does, are `Err`.
+imageSurfaceFromPng(png: Array[byte]) -> Result[Surface, CairoError] =
+  var at = 0
+
+  fill(into: MutByteView) -> Status =
+    val n = into.length()
+    if n > png.length() - at then ReadError
+    else
+      into.write(0, png.slice(at, at + n))
+      at += n
+      Success
+
+  checked(readPngStream(fill))
 
 @c("cairo_surface_t *cairo_pdf_surface_create(const char *filename, double width_in_points, double height_in_points)")
 private pdfSurfaceRaw(filename: string, widthInPoints: real, heightInPoints: real) -> Surface

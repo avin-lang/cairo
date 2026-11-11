@@ -14,6 +14,18 @@ data Segment
   // A line back to the start of the sub-path, closing it.
   ClosePath
 
+// The kind of a segment, as the header of Cairo's path data names it.
+@c(enum: "cairo_path_data_type_t", prefix: "CAIRO_PATH_")
+data PathDataType
+  @c("CAIRO_PATH_MOVE_TO")
+  Move
+  @c("CAIRO_PATH_LINE_TO")
+  Line
+  @c("CAIRO_PATH_CURVE_TO")
+  Curve
+  @c("CAIRO_PATH_CLOSE_PATH")
+  Close
+
 // Cairo's `cairo_path_t`: a status, and `num_data` elements of a union of a header (the kind of a
 // segment and its length in elements, itself included) and a point.
 @c(type: "cairo_path_t *", release: "cairo_path_destroy")
@@ -23,7 +35,7 @@ class PathData
   @c(field: "num_data")
   count() -> int
   @c(field: "data[i].header.type", bound: "self->num_data")
-  kind(i: int) -> int
+  kind(i: int) -> PathDataType
   @c(field: "data[i].header.length", bound: "self->num_data")
   span(i: int) -> int
   @c(field: "data[i].point.x", bound: "self->num_data")
@@ -63,10 +75,10 @@ private class RectangleListData
 private segmentAt(d: PathData, i: int) -> (Segment, int) =
   val n = d.span(i)
   d.kind(i) match
-    0 -> (MoveTo(d.x(i + 1), d.y(i + 1)), n)
-    1 -> (LineTo(d.x(i + 1), d.y(i + 1)), n)
-    2 -> (CurveTo(d.x(i + 1), d.y(i + 1), d.x(i + 2), d.y(i + 2), d.x(i + 3), d.y(i + 3)), n)
-    _ -> (ClosePath, n)
+    Move -> (MoveTo(d.x(i + 1), d.y(i + 1)), n)
+    Line -> (LineTo(d.x(i + 1), d.y(i + 1)), n)
+    Curve -> (CurveTo(d.x(i + 1), d.y(i + 1), d.x(i + 2), d.y(i + 2), d.x(i + 3), d.y(i + 3)), n)
+    Close -> (ClosePath, n)
 
 // Walks the data once, header by header.
 private walk(d: PathData) -> Vector[Segment] =

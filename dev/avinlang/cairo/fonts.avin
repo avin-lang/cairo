@@ -163,6 +163,48 @@ class ScaledFont
   @c("void cairo_scaled_font_get_scale_matrix(cairo_scaled_font_t *self, out cairo_matrix_t *scale_matrix)")
   scaleMatrix() -> Matrix
 
+  @c(
+    "cairo_status_t cairo_scaled_font_text_to_glyphs(cairo_scaled_font_t *self, double x, double y, const char *utf8, int utf8_len, out cairo_glyph_t **glyphs, out int *num_glyphs, null cairo_text_cluster_t **clusters, null int *num_clusters, null cairo_text_cluster_flags_t *cluster_flags)",
+    array: "glyphs",
+    length: "num_glyphs",
+    free: "cairo_glyph_free"
+  )
+  private glyphsRaw(x: real, y: real, utf8: string, length: int) -> Result[(Array[Glyph], int), int]
+
+  @c(
+    "cairo_status_t cairo_scaled_font_text_to_glyphs(cairo_scaled_font_t *self, double x, double y, const char *utf8, int utf8_len, out cairo_glyph_t **glyphs, out int *num_glyphs, out cairo_text_cluster_t **clusters, out int *num_clusters, out cairo_text_cluster_flags_t *cluster_flags)",
+    array: ["glyphs", "clusters"],
+    length: ["num_glyphs", "num_clusters"],
+    free: ["cairo_glyph_free", "cairo_text_cluster_free"]
+  )
+  private clustersRaw(x: real, y: real, utf8: string, length: int) -> Result[(Array[Glyph], int, Array[TextCluster], int, int), int]
+
+  // The glyphs that draw `text` in the font, the first with its origin at `x`, `y` and each after it
+  // where the one before advances to, ready for `Context.showGlyphs`. None for empty text; `Err` with
+  // the font's failure where it has one.
+  textToGlyphs(text: string, x: real = 0.0, y: real = 0.0) -> Result[Array[Glyph], CairoError] =
+    val (glyphs, _) = glyphsRaw(x, y, text, -1).mapErr(cairoError)?
+    Ok(glyphs)
+
+  // The glyphs that draw `text`, as `textToGlyphs` answers them, with the clusters that map them back
+  // to its bytes.
+  textToGlyphsAndClusters(text: string, x: real = 0.0, y: real = 0.0) -> Result[ShapedText, CairoError] =
+    val (glyphs, _, clusters, _, flags) = clustersRaw(x, y, text, -1).mapErr(cairoError)?
+    Ok(ShapedText(glyphs, clusters, (flags & clusterBackward) != 0))
+
+// A run of a text's bytes and the run of glyphs that draw it, Cairo's `cairo_text_cluster_t`: the
+// clusters of a text, in order, cover its bytes and its glyphs each exactly once.
+@c(struct: "cairo_text_cluster_t")
+data TextCluster(numBytes: int, numGlyphs: int)
+
+// Text turned into glyphs: the glyphs, the clusters mapping them to the text's bytes, and whether the
+// clusters run from the text's end to its start, as they do for right-to-left text.
+data ShapedText(glyphs: Array[Glyph], clusters: Array[TextCluster], backward: bool)
+
+// Cairo's `CAIRO_TEXT_CLUSTER_FLAG_BACKWARD`.
+@c(const: "CAIRO_TEXT_CLUSTER_FLAG_BACKWARD")
+private val clusterBackward: int
+
 @c(
   "cairo_scaled_font_t *cairo_scaled_font_create(cairo_font_face_t *font_face, const cairo_matrix_t *font_matrix, const cairo_matrix_t *ctm, const cairo_font_options_t *options)"
 )

@@ -26,6 +26,31 @@ scratch() -> string = fs.createTempDir("avin-cairo").getOrElse(fail("no temporar
 // An ARGB32 image surface of `width` by `height` pixels and a context drawing on it.
 canvas(width: int, height: int) -> Context = made(made(imageSurface(Argb32, width, height)).context())
 
+// The reference program's `setsourcergba.png` drawn on a new 120 by 120 ARGB32 surface: three
+// translucent squares over a black cross.
+squares() -> Surface =
+  val surface = made(imageSurface(Argb32, 120, 120))
+  val cr = made(surface.context())
+  cr.scale(120, 120)
+  cr.setSourceRgb(0, 0, 0)
+  cr.moveTo(0, 0)
+  cr.lineTo(1, 1)
+  cr.moveTo(1, 0)
+  cr.lineTo(0, 1)
+  cr.setLineWidth(0.2)
+  cr.stroke()
+  cr.rectangle(0, 0, 0.5, 0.5)
+  cr.setSourceRgba(1, 0, 0, 0.80)
+  cr.fill()
+  cr.rectangle(0, 0.5, 0.5, 0.5)
+  cr.setSourceRgba(0, 1, 0, 0.60)
+  cr.fill()
+  cr.rectangle(0.5, 0, 0.5, 0.5)
+  cr.setSourceRgba(0, 0, 1, 0.40)
+  cr.fill()
+  made(cr.status())
+  surface
+
 // Enough allocation for the collector to run, under stress or not: 6000, the elements allocated.
 churn() -> int =
   var total = 0

@@ -4,7 +4,6 @@ module tests
 // squares over a black cross, and `tagged.pdf`, a two-page document with metadata, structure tags, an
 // outline and page labels.
 import dev.avinlang.cairo.{
-  Argb32,
   Author,
   Bold,
   CairoError,
@@ -17,34 +16,13 @@ import dev.avinlang.cairo.{
   Title,
   V14,
   V17,
-  imageSurface,
   outlineRoot,
   pdfSurface
 }
 
 // The reference program's `setsourcergba.png`, written to `path`.
 private setSourceRgba(path: string) -> Result[unit, CairoError] =
-  val surface = imageSurface(Argb32, 120, 120)?
-  val cr = surface.context()?
-  cr.scale(120, 120)
-  cr.setSourceRgb(0, 0, 0)
-  cr.moveTo(0, 0)
-  cr.lineTo(1, 1)
-  cr.moveTo(1, 0)
-  cr.lineTo(0, 1)
-  cr.setLineWidth(0.2)
-  cr.stroke()
-  cr.rectangle(0, 0, 0.5, 0.5)
-  cr.setSourceRgba(1, 0, 0, 0.80)
-  cr.fill()
-  cr.rectangle(0, 0.5, 0.5, 0.5)
-  cr.setSourceRgba(0, 1, 0, 0.60)
-  cr.fill()
-  cr.rectangle(0.5, 0, 0.5, 0.5)
-  cr.setSourceRgba(0, 0, 1, 0.40)
-  cr.fill()
-  cr.status()?
-  surface.writeToPng(path)
+  squares().writeToPng(path)
 
 @test("setsourcergba.png is drawn as the reference program draws it")
 setSourceRgbaPng()

@@ -1,5 +1,7 @@
 module dev.avinlang.cairo
 
+import avin.c.{ByteBlock, MutByteView}
+
 // Surfaces: what Cairo draws on. An image surface holds pixels in memory and writes them to a PNG
 // file; a PDF or SVG surface writes a document to the file it was made with as it is drawn on, and
 // completes it when finished.
@@ -10,8 +12,15 @@ module dev.avinlang.cairo
 // produce output ask it before they write, and `status()` asks it whenever the caller wants to know.
 
 // A surface, counted by Cairo: the handle holds one reference, and every context drawing on the
-// surface holds another, so the surface lives while anything draws on it.
-@c(type: "cairo_surface_t *", release: "cairo_surface_destroy", retain: "cairo_surface_reference")
+// surface holds another, so the surface lives while anything draws on it. A surface made over a block
+// of bytes keeps it by Cairo's own count, so the block lives as long as Cairo's surface does.
+@c(
+  type: "cairo_surface_t *",
+  release: "cairo_surface_destroy",
+  retain: "cairo_surface_reference",
+  attach: "cairo_surface_set_user_data(self, key, data, destroy)",
+  key: "cairo_user_data_key_t"
+)
 class Surface
   @c("cairo_status_t cairo_surface_status(cairo_surface_t *self)")
   private statusRaw() -> Result[unit, int]
@@ -92,6 +101,30 @@ class Surface
   @c("void cairo_surface_flush(cairo_surface_t *self)")
   flush()
 
+  @c(
+    "unsigned char *cairo_image_surface_get_data(cairo_surface_t *self)",
+    view,
+    writable,
+    length: "cairo_image_surface_get_stride(self) * cairo_image_surface_get_height(self)"
+  )
+  private dataRaw() -> Option[MutByteView]
+
+  // The pixels of an image surface as Cairo lays them out, `stride()` bytes to a row, after flushing
+  // what Cairo has deferred; `None` for any surface that is not an image. The view is valid until the
+  // surface is used again: after writing through it, `markDirty` tells Cairo, and the surface's next
+  // use closes the view, so a write after that stops the program.
+  pixels() -> Option[MutByteView] =
+    flush()
+    dataRaw()
+
+  // Tells Cairo the pixels were changed from outside, so it discards what it cached of them.
+  @c("void cairo_surface_mark_dirty(cairo_surface_t *self)")
+  markDirty()
+
+  // Tells Cairo only the rectangle of `width` by `height` pixels at `x`, `y` was changed.
+  @c("void cairo_surface_mark_dirty_rectangle(cairo_surface_t *self, int x, int y, int width, int height)")
+  markDirtyRectangle(x: int, y: int, width: int, height: int)
+
   @c("cairo_status_t cairo_surface_write_to_png(cairo_surface_t *self, const char *filename)")
   private writePngRaw(filename: string) -> Result[unit, int]
 
@@ -164,6 +197,31 @@ private imageSurfaceRaw(format: Format, width: int, height: int) -> Surface
 imageSurface(format: Format, width: int, height: int) -> Result[Surface, CairoError] =
   checked(imageSurfaceRaw(format, width, height))
 
+@c(
+  "cairo_surface_t *cairo_image_surface_create_for_data(unsigned char *pixels, cairo_format_t format, int width, int height, int stride)",
+  keeps: "pixels"
+)
+private imageSurfaceOverRaw(pixels: ByteBlock, format: Format, width: int, height: int, stride: int) -> Surface
+
+// A surface of `width` by `height` pixels in `format` drawing straight into `pixels`, `stride` bytes to
+// a row, which the surface keeps for as long as Cairo holds it. Cairo wants `stride` to be what
+// `formatStrideForWidth` answers for the width, or a larger multiple of 4. A block holding fewer than
+// `height * stride` bytes is `Err` with `InvalidSize`, as is a size Cairo refuses; a stride that is
+// not a multiple of 4, is smaller than the width's row, or is negative is `Err` with `InvalidStride`.
+// The checks are made here because a surface Cairo refuses cannot keep the block.
+imageSurfaceOver(
+  pixels: ByteBlock,
+  format: Format,
+  width: int,
+  height: int,
+  stride: int
+) -> Result[Surface, CairoError] =
+  if width < 0 || height < 0 || width > 32767 || height > 32767 then Err(cairoError(invalidSize))
+  else if stride < formatStrideForWidth(format, width).getOrElse(0) || stride % 4 != 0 then
+    Err(cairoError(invalidStride))
+  else if long(pixels.length()) < long(height) * long(stride) then Err(cairoError(invalidSize))
+  else checked(imageSurfaceOverRaw(pixels, format, width, height, stride))
+
 @c("cairo_surface_t *cairo_pdf_surface_create(const char *filename, double width_in_points, double height_in_points)")
 private pdfSurfaceRaw(filename: string, widthInPoints: real, heightInPoints: real) -> Surface
 
@@ -188,6 +246,12 @@ private recordingSurfaceRaw(content: Content, extents: Option[Rectangle]) -> Sur
 // unbounded for `None`. It holds `content`.
 recordingSurface(content: Content = ColorAlpha, extents: Option[Rectangle] = None) -> Result[Surface, CairoError] =
   checked(recordingSurfaceRaw(content, extents))
+
+// Cairo's `CAIRO_STATUS_INVALID_SIZE`.
+private val invalidSize: int = 32
+
+// Cairo's `CAIRO_STATUS_INVALID_STRIDE`.
+private val invalidStride: int = 24
 
 // A surface just made, or the failure it holds, the surface closed.
 private checked(made: Surface) -> Result[Surface, CairoError] = made.status() match

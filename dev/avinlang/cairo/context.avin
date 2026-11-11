@@ -46,6 +46,11 @@ class Context
   @c("void cairo_set_source(cairo_t *self, cairo_pattern_t *source)")
   setSource(pattern: Pattern)
 
+  // Paints with `surface` from now on, its origin placed at (`x`, `y`) in user space; the context holds
+  // a reference to it.
+  @c("void cairo_set_source_surface(cairo_t *self, cairo_surface_t *surface, double x, double y)")
+  setSourceSurface(surface: Surface, x: real, y: real)
+
   // The pattern the context paints with: a handle of its own on it.
   @c("cairo_pattern_t *cairo_get_source(cairo_t *self)", borrowed)
   source() -> Pattern

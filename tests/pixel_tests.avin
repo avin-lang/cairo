@@ -1,0 +1,263 @@
+module tests
+
+// An image surface's pixels as a view valid between `flush` and `mark_dirty`, a surface made over a
+// block of bytes it keeps alive, and the reference program's `markdirty.png` and `createfordata.png`.
+import avin.c.{ByteBlock, ByteView, MutByteView}
+import dev.avinlang.cairo.{
+  A8,
+  Argb32,
+  Context,
+  Rgb24,
+  Surface,
+  formatStrideForWidth,
+  imageSurface,
+  imageSurfaceOver,
+  recordingSurface
+}
+
+// The pixel view of a surface the test expects to be an image.
+private view(s: Surface) -> MutByteView = s.pixels().getOrElse(fail("no pixel view"))
+
+// The four bytes of the pixel at byte offset `at`: blue, green, red and alpha of an ARGB32 pixel.
+private bgra(v: ByteView, at: int) -> Vector[int] = [int(v(at)), int(v(at + 1)), int(v(at + 2)), int(v(at + 3))]
+
+// Writes an opaque pixel of the colour (`b`, `g`, `r`) at byte offset `at` of a view.
+private paintPixel(v: MutByteView, at: int, b: int, g: int, r: int)
+  v.write(at, [byte(b), byte(g), byte(r), byte(255)])
+
+// Byte `k` of an opaque blue pixel in blue, green, red, alpha order.
+private blue(k: int) -> int = if k == 0 || k == 3 then 255 else 0
+
+// The reference program's `markdirty.png`: the squares of `setsourcergba.png` read back through the
+// view, an opaque blue block written into their top left corner, `markDirty`, and the surface painted
+// onto a fresh one.
+@test("markdirty.png: pixels written through the view are what a surface painted from it shows after markDirty")
+markDirtyReference()
+  val src = squares()
+  val stride = src.stride()
+  assertEq(stride, 480)
+  val px = src.pixels().getOrElse(fail("no pixel view"))
+  assertEq(px.length(), 480 * 120)
+  assertEq(bgra(px, 0), [0, 0, 204, 255])
+  val original = px.copy()
+  for y in 0 ..< 10
+    for x in 0 ..< 10
+      paintPixel(px, y * stride + x * 4, 255, 0, 0)
+  src.markDirty()
+  val dest = made(imageSurface(Argb32, 120, 120))
+  val dcr = made(dest.context())
+  dcr.setSourceSurface(src, 0, 0)
+  dcr.paint()
+  made(dcr.status())
+  val out = view(dest)
+  assertEq(bgra(out, 0), [255, 0, 0, 255])
+  for y in 0 ..< 120
+    for x in 0 ..< 120
+      val at = y * stride + x * 4
+      for k in 0 ..< 4
+        val expected = if x < 10 && y < 10 then blue(k) else int(original(at + k))
+        assertEq(int(out(at + k)), expected)
+  made(dest.writeToPng(s"${scratch()}/markdirty.png"))
+
+@test("a surface painted from another sees only the pixels written before markDirty, not those after it")
+markDirtyOrdering()
+  val src = squares()
+  val px = src.pixels().getOrElse(fail("no pixel view"))
+  paintPixel(px, 0, 255, 255, 255)
+  src.markDirty()
+  val dest = made(imageSurface(Argb32, 120, 120))
+  val dcr = made(dest.context())
+  dcr.setSourceSurface(src, 0, 0)
+  dcr.paint()
+  assertEq(bgra(view(dest), 0), [255, 255, 255, 255])
+
+@test("markDirtyRectangle tells Cairo of a changed rectangle, and the pixels in it show")
+markDirtyRectangle()
+  val src = made(imageSurface(Argb32, 16, 16))
+  val stride = src.stride()
+  val px = src.pixels().getOrElse(fail("no pixel view"))
+  for y in 4 ..< 8
+    for x in 4 ..< 8
+      paintPixel(px, y * stride + x * 4, 0, 255, 0)
+  src.markDirtyRectangle(4, 4, 4, 4)
+  val dest = made(imageSurface(Argb32, 16, 16))
+  val dcr = made(dest.context())
+  dcr.setSourceSurface(src, 0, 0)
+  dcr.paint()
+  val out = view(dest)
+  assertEq(bgra(out, 4 * stride + 4 * 4), [0, 255, 0, 255])
+  assertEq(bgra(out, 7 * stride + 7 * 4), [0, 255, 0, 255])
+  assertEq(bgra(out, 8 * stride + 8 * 4), [0, 0, 0, 0])
+  assertEq(bgra(out, 3 * stride + 4 * 4), [0, 0, 0, 0])
+
+@test(should_trap: "was closed")
+viewClosedByMarkDirty()
+  val src = made(imageSurface(Argb32, 4, 4))
+  val px = src.pixels().getOrElse(fail("no pixel view"))
+  px.update(0, byte(1))
+  src.markDirty()
+  px.update(4, byte(0))
+
+@test(should_trap: "was closed")
+viewClosedByMarkDirtyRectangle()
+  val src = made(imageSurface(Argb32, 4, 4))
+  val px = src.pixels().getOrElse(fail("no pixel view"))
+  src.markDirtyRectangle(0, 0, 1, 1)
+  px.update(0, byte(1))
+
+@test(should_trap: "was closed")
+viewClosedByFlush()
+  val src = made(imageSurface(Argb32, 4, 4))
+  val px = src.pixels().getOrElse(fail("no pixel view"))
+  src.flush()
+  px.update(0, byte(1))
+
+@test(should_trap: "was closed")
+viewClosedByNextView()
+  val src = made(imageSurface(Argb32, 4, 4))
+  val first = src.pixels().getOrElse(fail("no pixel view"))
+  val second = src.pixels().getOrElse(fail("no pixel view"))
+  assertEq(second.length(), 64)
+  first.update(0, byte(1))
+
+@test("the view is as long as stride times height in every format, and a recording surface has none")
+viewLengths()
+  assertEq(view(made(imageSurface(Argb32, 7, 3))).length(), 28 * 3)
+  assertEq(view(made(imageSurface(Rgb24, 7, 3))).length(), 28 * 3)
+  assertEq(view(made(imageSurface(A8, 7, 3))).length(), 8 * 3)
+  assertEq(made(recordingSurface()).pixels().isEmpty(), true)
+
+@test("what Cairo draws shows in the view after it is flushed, and drawing again shows in the next view")
+drawnShowsInView()
+  val surface = made(imageSurface(Argb32, 4, 4))
+  val cr = made(surface.context())
+  cr.setSourceRgb(1, 0, 0)
+  cr.paint()
+  assertEq(bgra(view(surface), 0), [0, 0, 255, 255])
+  cr.setSourceRgb(0, 0, 1)
+  cr.paint()
+  assertEq(bgra(view(surface), 60), [255, 0, 0, 255])
+
+// The reference program's `createfordata.png`: an 8 by 8 opaque magenta image over a block of bytes
+// the program owns, the stride taken from `formatStrideForWidth`.
+@test("createfordata.png: a surface over a block is the block's pixels, with no copy")
+createForDataReference()
+  val stride = formatStrideForWidth(Argb32, 8).getOrElse(fail("no stride"))
+  assertEq(stride, 32)
+  val block = ByteBlock(8 * stride)
+  for y in 0 ..< 8
+    for x in 0 ..< 8
+      paintPixel(block, y * stride + x * 4, 255, 0, 255)
+  val wrapped = made(imageSurfaceOver(block, Argb32, 8, 8, stride))
+  wrapped.flush()
+  assertEq(wrapped.width(), 8)
+  assertEq(wrapped.height(), 8)
+  assertEq(wrapped.stride(), 32)
+  assertEq(wrapped.format(), Some(Argb32))
+  assertEq(bgra(view(wrapped), 0), [255, 0, 255, 255])
+  assertEq(bgra(block, 7 * stride + 7 * 4), [255, 0, 255, 255])
+  assertEq(pngHeaderOf(wrapped), "8x8 depth 8 colour 2")
+
+private pngHeaderOf(s: Surface) -> string =
+  val path = s"${scratch()}/over.png"
+  made(s.writeToPng(path))
+  pngHeader(path)
+
+@test("drawing on a surface over a block writes into the block itself")
+drawsIntoBlock()
+  val block = ByteBlock(8 * 32)
+  val s = made(imageSurfaceOver(block, Argb32, 8, 8, 32))
+  val cr = made(s.context())
+  cr.setSourceRgb(0, 1, 0)
+  cr.paint()
+  s.flush()
+  assertEq(bgra(block, 0), [0, 255, 0, 255])
+  assertEq(bgra(block, 7 * 32 + 28), [0, 255, 0, 255])
+
+@test("a stride larger than the width leaves each row's padding alone and puts row n at n times the stride")
+wideStride()
+  val block = ByteBlock(64 * 8)
+  block.fill(0, 64 * 8, byte(7))
+  val s = made(imageSurfaceOver(block, Argb32, 8, 8, 64))
+  assertEq(s.stride(), 64)
+  assertEq(s.width(), 8)
+  assertEq(view(s).length(), 64 * 8)
+  val cr = made(s.context())
+  cr.setSourceRgb(1, 0, 0)
+  cr.rectangle(0, 1, 8, 1)
+  cr.fill()
+  s.flush()
+  assertEq(bgra(block, 64), [0, 0, 255, 255])
+  assertEq(bgra(block, 64 + 28), [0, 0, 255, 255])
+  assertEq(int(block(64 + 32)), 7)
+  assertEq(int(block(64 + 63)), 7)
+  assertEq(bgra(view(s), 64 + 4), [0, 0, 255, 255])
+
+@test("a block of exactly height times stride is enough, and one byte fewer is Err with InvalidSize")
+tooSmallBlock()
+  assertEq(code(imageSurfaceOver(ByteBlock(8 * 32), Argb32, 8, 8, 32)), 0)
+  val e = failure(imageSurfaceOver(ByteBlock(8 * 32 - 1), Argb32, 8, 8, 32))
+  assertEq(e.code, 32)
+  assertEq(e.message, "invalid value (typically too big) for the size of the input (surface, pattern, etc.)")
+  assertEq(code(imageSurfaceOver(ByteBlock(), Argb32, 1, 1, 4)), 32)
+  assertEq(code(imageSurfaceOver(ByteBlock(31), Argb32, 8, 1, 64)), 32)
+
+@test("a stride Cairo refuses is Err with InvalidStride, and a negative size InvalidSize")
+refusedStrides()
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 8, 8, 30)), 24)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 8, 8, 28)), 24)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 8, -1, 32)), 32)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, -8, 8, 32)), 32)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 32768, 1, 131072)), 32)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 8, 8, -32)), 24)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 8, 8, 0)), 24)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), Argb32, 8, 8, 34)), 24)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), A8, 8, 8, 6)), 24)
+  assertEq(code(imageSurfaceOver(ByteBlock(400), A8, 8, 8, 8)), 0)
+
+@test("a block holds a stride and height whose product passes an int without overflowing the check")
+hugeProduct()
+  assertEq(code(imageSurfaceOver(ByteBlock(64), Argb32, 8, 2147483647, 2147483644)), 32)
+
+// A context on a surface over a block that nothing else holds.
+private overOrphanBlock() -> Context =
+  val block = ByteBlock(8 * 32)
+  val s = made(imageSurfaceOver(block, Argb32, 8, 8, 32))
+  made(s.context())
+
+@test("the block lives while Cairo's surface does, through collections, after its handle and Avin's block are gone")
+blockOutlivesHandles()
+  val cr = overOrphanBlock()
+  assertEq(churn(), 6000)
+  cr.setSourceRgb(1, 0, 0)
+  cr.paint()
+  assertEq(bgra(view(cr.target()), 0), [0, 0, 255, 255])
+  assertEq(churn(), 6000)
+  assertEq(bgra(view(cr.target()), 7 * 32 + 28), [0, 0, 255, 255])
+
+@test("many surfaces over blocks are made, drawn on, closed and collected, each reading its own block")
+manySurfacesOverBlocks()
+  for i in 0 ..< 300
+    val block = ByteBlock(4 * 16)
+    val s = made(imageSurfaceOver(block, Argb32, 4, 4, 16))
+    val cr = made(s.context())
+    cr.setSourceRgb(real(i % 2), 0, 1)
+    cr.paint()
+    s.flush()
+    assertEq(bgra(block, 0), [255, 0, i % 2 * 255, 255])
+    cr.close()
+    s.close()
+    if i % 50 == 0 then assertEq(churn(), 6000)
+
+@test("two surfaces over one block both see its bytes")
+twoSurfacesOneBlock()
+  val block = ByteBlock(4 * 16)
+  val a = made(imageSurfaceOver(block, Argb32, 4, 4, 16))
+  val b = made(imageSurfaceOver(block, Argb32, 4, 4, 16))
+  paintPixel(block, 0, 1, 2, 3)
+  a.markDirty()
+  b.markDirty()
+  assertEq(bgra(view(a), 0), [1, 2, 3, 255])
+  assertEq(bgra(view(b), 0), [1, 2, 3, 255])
+  a.close()
+  assertEq(bgra(view(b), 0), [1, 2, 3, 255])

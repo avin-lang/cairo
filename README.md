@@ -63,7 +63,12 @@ main()
 ## What is bound
 
 - **Surfaces**: `imageSurface(format, width, height)`, `pdfSurface(path, width, height)` and
-  `svgSurface(path, width, height)`, each answering `Err` with Cairo's failure; an image surface's
+  `svgSurface(path, width, height)`, each answering `Err` with Cairo's failure; `imageSurfaceOver(block,
+  format, width, height, stride)`, a surface drawing straight into an `avin.c.ByteBlock` that it keeps
+  alive as long as Cairo holds the surface (`Err` for a block shorter than `height * stride`, and for
+  a size or stride Cairo refuses); an image surface's `pixels()`, its bytes as a writable view valid
+  from the `flush` it makes until the surface is used again (`markDirty` and `markDirtyRectangle`
+  tell Cairo of what was written, and close the view); a context's `setSourceSurface`; an image surface's
   `width`, `height`, `stride` and `format`; `writeToPng`, `flush`, `finish` and `showPage`; and a PDF
   surface's `restrictToVersion`, `setSize`, `setMetadata`, `setCustomMetadata`, `setPageLabel`,
   `setThumbnailSize` and `addOutline`. `formatStrideForWidth` gives the row stride of any format.
@@ -107,6 +112,8 @@ main()
   `copyClipRectangleList` answers the clip as a `Vector[Rectangle]`, or `Err` (`ClipNotRepresentable`
   for a clip that is not device-aligned rectangles). Cairo's path and rectangle list are walked once
   and freed by the collector with their handles.
+- Cairo's PNG stream calls (`write_to_png_stream`, `create_from_png_stream`) are not bound: Avin's C
+  bindings do not yet lend a callback the bytes as a view.
 - `version()` and `versionString()`.
 
 Surfaces, contexts and patterns are handles on Cairo's counted objects: each is given back to Cairo

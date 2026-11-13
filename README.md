@@ -14,7 +14,7 @@ The package finds Cairo with `pkg-config` (the modules `cairo`, `cairo-pdf` and 
 
 ## Using it
 
-Name it in your package's `avin.hocon`:
+The package needs Avin 0.0.18 or later. Name it in your package's `avin.hocon`:
 
 ```hocon
 dependencies {
@@ -65,11 +65,14 @@ main()
 - **Surfaces**: `imageSurface(format, width, height)`, `pdfSurface(path, width, height)` and
   `svgSurface(path, width, height)`, each answering `Err` with Cairo's failure; `imageSurfaceOver(block,
   format, width, height, stride)`, a surface drawing straight into an `avin.c.ByteBlock` that it keeps
-  alive as long as Cairo holds the surface (`Err` for a block shorter than `height * stride`, and for
-  a size or stride Cairo refuses); an image surface's `pixels()`, its bytes as a writable view valid
+  alive as long as Cairo holds the surface (`Err` with Cairo's own status for a size or stride it
+  refuses, and for a block shorter than `height * stride` or a negative stride, which would take Cairo
+  outside the block); an image surface's `pixels()`, its bytes as a writable view valid
   from the `flush` it makes until the surface is used again (`markDirty` and `markDirtyRectangle`
   tell Cairo of what was written, and close the view); a context's `setSourceSurface`; an image surface's
-  `width`, `height`, `stride` and `format`; `writeToPng`, `flush`, `finish` and `showPage`; and a PDF
+  `width`, `height`, `stride` and `format`; `writeToPng`, `flush`, `finish` and `showPage`;
+  `toPng()`, the PNG image in memory as an `Array[byte]`, and `imageSurfaceFromPng(bytes)`, an image
+  surface read back from one (`Err` for bytes that are not a PNG image); and a PDF
   surface's `restrictToVersion`, `setSize`, `setMetadata`, `setCustomMetadata`, `setPageLabel`,
   `setThumbnailSize` and `addOutline`. `formatStrideForWidth` gives the row stride of any format.
 - **Contexts**, made by `Surface.context()`: `save` and `restore`; `setSourceRgb`, `setSourceRgba`,
@@ -86,8 +89,8 @@ main()
   `statusKind()` answers a context's, surface's or pattern's status as a `Status`.
 - **Geometry on a context**: `currentPoint`; `userToDevice`, `deviceToUser` and their `_Distance`
   forms; `fillExtents`, `strokeExtents`, `pathExtents` and `clipExtents`; `inClip`, `clip`,
-  `clipPreserve` and `resetClip`; and `setDash` and `dashCount`. Cairo's `cairo_get_dash` is not
-  bound: Avin's C bindings cannot express an array C fills whose length comes from another call.
+  `clipPreserve` and `resetClip`; and `setDash`, `dashCount` and `dash`, the pattern and offset read
+  back.
 - **Patterns**: `solidRgb`, `solidRgba`, `linearGradient` and `radialGradient`, with
   `addColorStopRgb` and `addColorStopRgba`.
 - **Matrices**: `Matrix` mirrors `cairo_matrix_t`, made by `matrix`, `identityMatrix`,
@@ -102,18 +105,17 @@ main()
 - **Fonts**: `fontOptions()` with the antialias, `SubpixelOrder`, `HintStyle` and `HintMetrics` options
   getting and setting, `merge`, `copy`, `equal` and `hash`; `toyFontFace`; and `scaledFont(face,
   fontMatrix, ctm, options)` with `extents`, `textExtents`, `glyphExtents`, `fontFace`, `fontMatrix`,
-  `ctm` and `scaleMatrix`. `cairo_scaled_font_text_to_glyphs` is not bound: it answers two arrays C
-  allocates (glyphs and clusters), a binding frees one `array:`, and a NULL cannot be passed to skip
-  the clusters.
+  `ctm` and `scaleMatrix`; and turning text into glyphs, `textToGlyphs(text, x, y)` answering the
+  glyphs ready for `showGlyphs`, and `textToGlyphsAndClusters` a `ShapedText` that adds the
+  `TextCluster`s mapping them back to the text's bytes and whether they run backward.
 - **Recording surfaces**: `recordingSurface(content, extents)` (unbounded for `None`), and
   `inkExtents` and `extents` on a surface.
 - **Paths**: `copyPath` and `copyPathFlat` answer a `Path` of typed `Segment`s (`MoveTo`, `LineTo`,
   `CurveTo`, `ClosePath`), or `Err`; `curveTo` adds a curve, `appendPath` adds a copied path back, and
   `copyClipRectangleList` answers the clip as a `Vector[Rectangle]`, or `Err` (`ClipNotRepresentable`
   for a clip that is not device-aligned rectangles). Cairo's path and rectangle list are walked once
-  and freed by the collector with their handles.
-- Cairo's PNG stream calls (`write_to_png_stream`, `create_from_png_stream`) are not bound: Avin's C
-  bindings do not yet lend a callback the bytes as a view.
+  and freed by the collector with their handles; a path's `raw()` data answers each header's
+  `PathDataType` (`Move`, `Line`, `Curve`, `Close`).
 - `version()` and `versionString()`.
 
 Surfaces, contexts and patterns are handles on Cairo's counted objects: each is given back to Cairo
@@ -131,5 +133,5 @@ avin test
 ```
 
 The tests write their files into temporary directories and read them back: PNG headers for the
-size, depth and colour type of what was drawn, and PDF and SVG documents for their headers,
+size, depth and colour type of what was drawn, PNG images in memory read back pixel for pixel, and PDF and SVG documents for their headers,
 metadata, outlines, page labels and structure.

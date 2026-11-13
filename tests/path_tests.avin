@@ -3,7 +3,7 @@ module tests
 // Copied paths: a path's segments exactly, flattened curves, appending a copy back, an empty path,
 // the clip as a list of rectangles, and the copies freed under collection.
 import avin.math.Pi
-import dev.avinlang.cairo.{ClosePath, CurveTo, LineTo, MoveTo, Path, Rectangle}
+import dev.avinlang.cairo.{Close, ClosePath, Curve, CurveTo, Line, LineTo, Move, MoveTo, Path, PathDataType, Rectangle}
 
 private shape() -> Path =
   val cr = canvas(100, 100)
@@ -23,6 +23,35 @@ copiesSegments()
   assertEq(p.segments(4), ClosePath)
   assertEq(p.segments(5), MoveTo(50.0, 50.0))
   assertEq(p.segments(6), CurveTo(60.0, 50.0, 70.0, 60.0, 80.0, 80.0))
+
+@test("Cairo's path data reads each header's kind as a PathDataType, and the spans walk it")
+dataKinds()
+  val cr = canvas(100, 100)
+  cr.moveTo(1, 2)
+  cr.lineTo(3, 4)
+  cr.curveTo(5, 6, 7, 8, 9, 10)
+  cr.closePath()
+  val d = made(cr.copyPath()).raw()
+  var kinds: Vector[PathDataType] = []
+  var i = 0
+  while i < d.count()
+    kinds = kinds :+ d.kind(i)
+    i += d.span(i)
+  // Closing a path adds a move to its start after the close.
+  assertEq(kinds, [Move, Line, Curve, Close, Move])
+  assertEq(d.kind(0), Move)
+  assertEq(d.span(0), 2)
+  assertEq(d.kind(4), Curve)
+  assertEq(d.span(4), 4)
+  assertEq(d.kind(8), Close)
+  assertEq(d.span(8), 1)
+
+@test(should_trap: "out of")
+kindPastTheEnd()
+  val cr = canvas(10, 10)
+  cr.moveTo(1, 1)
+  val d = made(cr.copyPath()).raw()
+  d.kind(d.count())
 
 @test("a path flattened has lines where the curve was, and no curve")
 flatCopy()

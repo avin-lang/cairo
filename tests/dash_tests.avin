@@ -1,0 +1,93 @@
+module tests
+
+// The dash pattern read back: what `setDash` set, the solid line, a long pattern, a refused pattern,
+// and the pattern as part of the saved state.
+import dev.avinlang.cairo.Context
+
+// The context's pattern, without its offset.
+private lengthsOf(cr: Context) -> Array[real] =
+  val (dashes, _) = cr.dash()
+  dashes
+
+@test("a new context's pattern is solid: no lengths and an offset of 0")
+solidByDefault()
+  val (dashes, offset) = canvas(10, 10).dash()
+  assertEq(dashes.length, 0)
+  assertEq(offset, 0.0)
+
+@test("the pattern and offset set are read back exactly")
+roundTrip()
+  val cr = canvas(10, 10)
+  val set: Array[real] = [4.0, 2.5, 1.0]
+  cr.setDash(set, 1.5)
+  val (dashes, offset) = cr.dash()
+  assertEq(dashes, set)
+  assertEq(offset, 1.5)
+  assertEq(cr.dashCount(), 3)
+
+@test("one length, and the offset left out, read back as set")
+oneLength()
+  val cr = canvas(10, 10)
+  val set: Array[real] = [3.0]
+  cr.setDash(set)
+  val (dashes, offset) = cr.dash()
+  assertEq(dashes, set)
+  assertEq(offset, 0.0)
+
+@test("a negative offset is read back as Cairo keeps it, moved forward a whole pattern at a time")
+negativeOffset()
+  val cr = canvas(10, 10)
+  cr.setDash([2.0, 2.0], -3.25)
+  val (_, offset) = cr.dash()
+  assertEq(offset, 0.75)
+
+@test("a pattern of a thousand lengths is read back whole")
+longPattern()
+  val cr = canvas(10, 10)
+  val set = (0 ..< 1000).map(i -> real(i % 7 + 1)).toArray()
+  cr.setDash(set, 2)
+  assertEq(lengthsOf(cr), set)
+
+@test("an empty pattern set after another makes the line solid again")
+backToSolid()
+  val cr = canvas(10, 10)
+  cr.setDash([1.0, 2.0])
+  cr.setDash([])
+  assertEq(lengthsOf(cr).length, 0)
+  assertEq(cr.dashCount(), 0)
+
+@test("the pattern is part of the saved state")
+savedState()
+  val cr = canvas(10, 10)
+  val outer: Array[real] = [5.0, 1.0]
+  val inner: Array[real] = [9.0]
+  cr.setDash(outer, 0.5)
+  cr.save()
+  cr.setDash(inner)
+  assertEq(lengthsOf(cr), inner)
+  cr.restore()
+  val (dashes, offset) = cr.dash()
+  assertEq(dashes, outer)
+  assertEq(offset, 0.5)
+
+@test("a pattern Cairo refuses is a failure the context keeps, and a context in error reads as solid")
+refused()
+  val cr = canvas(10, 10)
+  cr.setDash([2.0, 3.0])
+  cr.setDash([1.0, -1.0])
+  assertEq(code(cr.status()), 19)
+  assertEq(cr.dashCount(), 0)
+  val (dashes, offset) = cr.dash()
+  assertEq(dashes.length, 0)
+  assertEq(offset, 0.0)
+
+@test("a thousand patterns read back under collection are each whole")
+manyReads()
+  val cr = canvas(10, 10)
+  var total = 0.0
+  for i in 0 ..< 1000
+    cr.setDash([real(i % 5 + 1), 1.0])
+    val dashes = lengthsOf(cr)
+    total += dashes(0) + dashes(1)
+    if i % 100 == 0 then churn()
+  assertEq(total, 4000.0)

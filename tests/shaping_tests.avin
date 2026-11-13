@@ -1,0 +1,103 @@
+module tests
+
+// Text turned into glyphs by a scaled font, with and without the clusters mapping the glyphs back to
+// the text's bytes: ASCII, characters of two, three and four bytes, empty text, and a font in error.
+import dev.avinlang.cairo.{ScaledFont, TextCluster, fontOptions, identityMatrix, scaledFont, scalingMatrix, toyFontFace}
+
+// A sans-serif font 20 units high.
+private font() -> ScaledFont =
+  made(scaledFont(made(toyFontFace("sans-serif")), scalingMatrix(20, 20), identityMatrix(), made(fontOptions())))
+
+// The bytes and glyphs the clusters cover, summed.
+private covered(clusters: Array[TextCluster]) -> (int, int) =
+  var bytes = 0
+  var glyphs = 0
+  for c in clusters
+    bytes += c.numBytes
+    glyphs += c.numGlyphs
+  (bytes, glyphs)
+
+@test("ASCII text is a glyph a character, the first at the origin given and each further right")
+asciiGlyphs()
+  val glyphs = made(font().textToGlyphs("Hello", 10, 30))
+  assertEq(glyphs.length, 5)
+  assertEq(glyphs(0).x, 10.0)
+  assertEq(glyphs(0).y, 30.0)
+  for i in 1 ..< glyphs.length
+    assert(glyphs(i - 1).x < glyphs(i).x)
+    assertEq(glyphs(i).y, 30.0)
+  assertEq(glyphs(2).index, glyphs(3).index)
+  assert(glyphs(0).index != glyphs(1).index)
+
+@test("the origin defaults to 0, 0")
+defaultOrigin()
+  val glyphs = made(font().textToGlyphs("A"))
+  assertEq(glyphs.length, 1)
+  assertEq(glyphs(0).x, 0.0)
+  assertEq(glyphs(0).y, 0.0)
+
+@test("glyphs answered are the ones the font measures and draws: their extents are the text's")
+glyphsMeasureAsText()
+  val f = font()
+  val glyphs = made(f.textToGlyphs("Avin"))
+  assertEq(f.glyphExtents(glyphs), f.textExtents("Avin"))
+
+@test("empty text is no glyphs, and no clusters")
+emptyText()
+  assertEq(made(font().textToGlyphs("")).length, 0)
+  val shaped = made(font().textToGlyphsAndClusters(""))
+  assertEq(shaped.glyphs.length, 0)
+  assertEq(shaped.clusters.length, 0)
+  assert(!shaped.backward)
+
+@test("ASCII clusters are a byte and a glyph each, forward")
+asciiClusters()
+  val shaped = made(font().textToGlyphsAndClusters("Hello", 5, 7))
+  assertEq(shaped.glyphs.length, 5)
+  assertEq(shaped.glyphs(0).x, 5.0)
+  assertEq(shaped.clusters.length, 5)
+  for c in shaped.clusters
+    assertEq(c, TextCluster(1, 1))
+  assert(!shaped.backward)
+
+@test("the glyphs with clusters are the glyphs without them")
+sameGlyphs()
+  val f = font()
+  val text = "Grüße, 日本"
+  assertEq(made(f.textToGlyphsAndClusters(text, 3, 4)).glyphs, made(f.textToGlyphs(text, 3, 4)))
+
+@test("characters of two, three and four bytes are one glyph each, their clusters as long as their encodings")
+multiByteClusters()
+  val text = "aé日😀z"
+  assertEq(text.byteLength, 11)
+  val shaped = made(font().textToGlyphsAndClusters(text))
+  assertEq(shaped.glyphs.length, 5)
+  assertEq(shaped.clusters.length, 5)
+  assertEq(shaped.clusters.map(c -> c.numBytes), [1, 2, 3, 4, 1])
+  assertEq(covered(shaped.clusters), (11, 5))
+
+@test("the clusters of longer mixed text cover every byte and every glyph exactly once")
+clusterCoverage()
+  val text = "Zürich – Ελληνικά – 東京 ✓"
+  val shaped = made(font().textToGlyphsAndClusters(text))
+  assertEq(covered(shaped.clusters), (text.byteLength, shaped.glyphs.length))
+  assert(shaped.clusters.forall(c -> c.numBytes > 0))
+
+@test("a font in error answers its failure, with and without clusters")
+fontInError()
+  val cr = canvas(10, 10)
+  cr.restore()
+  val f = cr.scaledFont()
+  assertEq(code(f.textToGlyphs("Hello")), 2)
+  assertEq(code(f.textToGlyphsAndClusters("Hello")), 2)
+  assertEq(failure(f.textToGlyphs("")).message, "cairo_restore() without matching cairo_save()")
+
+@test("a thousand shapings are each freed once, under collection")
+manyShapings()
+  val f = font()
+  var total = 0
+  for i in 0 ..< 1000
+    total += made(f.textToGlyphsAndClusters("héllo")).clusters.length
+    total += made(f.textToGlyphs("abc")).length
+    if i % 100 == 0 then churn()
+  assertEq(total, 8000)

@@ -55,7 +55,7 @@ squares() -> Surface =
 churn() -> int =
   var total = 0
   for i in 0 ..< 2000
-    total += [i, i + 1, i + 2].length()
+    total += [i, i + 1, i + 2].length
   total
 
 // The bytes of the file at `path`.
@@ -74,7 +74,7 @@ word(bytes: Array[byte], at: int) -> int =
 // Whether `bytes` begin with PNG's eight-byte signature.
 isPng(bytes: Array[byte]) -> bool =
   val signature = [137, 80, 78, 71, 13, 10, 26, 10]
-  bytes.length() >= 8 && (0 ..< 8).forall(i -> octet(bytes, i) == signature(i))
+  bytes.length >= 8 && (0 ..< 8).forall(i -> octet(bytes, i) == signature(i))
 
 // What a PNG file's header says: its width, height, bit depth and colour type, as one line.
 pngHeader(path: string) -> string =

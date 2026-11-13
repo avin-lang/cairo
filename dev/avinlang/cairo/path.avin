@@ -38,10 +38,10 @@ class Path(val segments: Vector[Segment], handle: PathData)
   raw() -> PathData = handle
 
   // Whether the path has no segments.
-  isEmpty() -> bool = segments.isEmpty()
+  isEmpty() -> bool = segments.isEmpty
 
   // The number of segments.
-  size() -> int = segments.length()
+  size() -> int = segments.length
 
 // Cairo's `cairo_rectangle_list_t`.
 @c(type: "cairo_rectangle_list_t *", release: "cairo_rectangle_list_destroy")

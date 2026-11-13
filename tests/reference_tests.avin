@@ -29,7 +29,7 @@ setSourceRgbaPng()
   val path = s"${scratch()}/setsourcergba.png"
   made(setSourceRgba(path))
   assertEq(pngHeader(path), "120x120 depth 8 colour 6")
-  assert(bytesOf(path).length() > 100)
+  assert(bytesOf(path).length > 100)
 
 // The reference program's `tagged.pdf` at `version`, written to `path`: its document metadata, the
 // structure of its two pages, its outline and its page labels. Its named destination and links are

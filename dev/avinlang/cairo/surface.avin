@@ -219,7 +219,7 @@ imageSurfaceOver(
   if width < 0 || height < 0 || width > 32767 || height > 32767 then Err(cairoError(invalidSize))
   else if stride < formatStrideForWidth(format, width).getOrElse(0) || stride % 4 != 0 then
     Err(cairoError(invalidStride))
-  else if long(pixels.length()) < long(height) * long(stride) then Err(cairoError(invalidSize))
+  else if long(pixels.length) < long(height) * long(stride) then Err(cairoError(invalidSize))
   else checked(imageSurfaceOverRaw(pixels, format, width, height, stride))
 
 @c("cairo_surface_t *cairo_pdf_surface_create(const char *filename, double width_in_points, double height_in_points)")

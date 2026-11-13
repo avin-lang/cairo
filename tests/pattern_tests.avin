@@ -93,7 +93,7 @@ patternOutlivesHandle()
 @test("a pattern set on many contexts is referenced by each, and given back as each goes")
 sharedPattern()
   val g = made(linearGradient(0, 0, 1, 0))
-  val contexts = (0 ..< 10).map(_ -> canvas(2, 2)).toVector()
+  val contexts = (0 ..< 10).map(_ -> canvas(2, 2)).toVector
   contexts.foreach(cr -> cr.setSource(g))
   assertEq(g.referenceCount(), 11)
   contexts.foreach(cr -> cr.close())

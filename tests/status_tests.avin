@@ -98,7 +98,7 @@ operators()
     Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion, HslHue,
     HslSaturation, HslColor, HslLuminosity
   ]
-  assertEq(all.length(), 29)
+  assertEq(all.length, 29)
   for op in all
     cr.setOperator(op)
     assertEq(cr.operator(), op)
@@ -129,7 +129,7 @@ drawingModes()
 formatsAndContents()
   val formats = [Argb32, Rgb24, A8, A1, Rgb16565, Rgb30, Rgb96f, Rgba128f]
   val contents = [ColorAlpha, Color, Alpha, Alpha, Color, Color, Color, ColorAlpha]
-  for i in 0 ..< formats.length()
+  for i in 0 ..< formats.length
     val s = made(imageSurface(formats(i), 2, 2))
     assertEq(s.format(), Some(formats(i)))
     assertEq(s.content(), contents(i))
@@ -192,7 +192,7 @@ everyStatus()
     Status.Jbig2GlobalMissing, Status.PngError, Status.FreetypeError, Status.Win32GdiError, Status.TagError,
     Status.DwriteError, Status.SvgFontError
   ]
-  assertEq(all.length(), 45)
+  assertEq(all.length, 45)
   for s in all
     assert(describe(s) != "")
 

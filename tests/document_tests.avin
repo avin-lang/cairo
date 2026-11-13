@@ -27,7 +27,7 @@ import dev.avinlang.cairo.{
 }
 
 // How many times `part` occurs in `text`.
-occurrences(text: string, part: string) -> int = text.split(part).length() - 1
+occurrences(text: string, part: string) -> int = text.split(part).length - 1
 
 @test("each PDF version is named as its header writes it, and a restricted document's header says it")
 pdfVersions()
@@ -73,12 +73,12 @@ drawAfterFinish()
   val pdf = made(pdfSurface(path, 100, 100))
   val cr = made(pdf.context())
   made(pdf.finish())
-  val before = bytesOf(path).length()
+  val before = bytesOf(path).length
   cr.paint()
   val e = failure(cr.status())
   assertEq(e.code, 12)
   assertEq(e.message, "the target surface has been finished")
-  assertEq(bytesOf(path).length(), before)
+  assertEq(bytesOf(path).length, before)
 
 @test("a PDF surface reads as no image: no size, no format, and its status unharmed")
 pdfIsNoImage()

@@ -154,13 +154,13 @@ closeTwice()
 closedWrite()
   val s = made(imageSurface(Argb32, 1, 1))
   s.close()
-  s.writeToPng(s"${scratch()}/closed.png")
+  val _ = s.writeToPng(s"${scratch()}/closed.png") // the call traps before it answers
 
 @test(should_trap: "`Surface` is closed")
 closedContext()
   val s = made(imageSurface(Argb32, 1, 1))
   s.close()
-  s.context()
+  val _ = s.context() // the call traps before it answers
 
 @test(should_trap: "`Surface` is closed")
 closedWidth()
@@ -172,4 +172,4 @@ closedWidth()
 closedFinish()
   val s = made(imageSurface(Argb32, 1, 1))
   s.close()
-  s.finish()
+  val _ = s.finish() // the call traps before it answers

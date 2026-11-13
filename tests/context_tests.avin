@@ -329,7 +329,7 @@ closedStroke()
 closedStatus()
   val cr = canvas(10, 10)
   cr.close()
-  cr.status()
+  val _ = cr.status() // the call traps before it answers
 
 @test(should_trap: "`Pattern` is closed")
 closedSource()

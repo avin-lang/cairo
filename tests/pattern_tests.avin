@@ -109,4 +109,4 @@ closedStop()
 closedPatternStatus()
   val g = made(radialGradient(0, 0, 1, 0, 0, 2))
   g.close()
-  g.status()
+  val _ = g.status() // the call traps before it answers

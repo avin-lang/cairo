@@ -200,7 +200,7 @@ statuses()
   assertEq(p.statusKind(), Status.PatternTypeMismatch)
   val s = made(imageSurface(Argb32, 2, 2))
   assertEq(s.statusKind(), Status.Success)
-  s.finish()
+  s.finish().ok.get
   assertEq(s.statusKind(), Status.Success)
   assertEq(code(s.writeToPng(scratch() + "/x.png")), 12)
 

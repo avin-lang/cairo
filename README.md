@@ -32,32 +32,32 @@ Three translucent squares over a black cross, written to `setsourcergba.png`:
 import dev.avinlang.cairo.{Argb32, CairoError, imageSurface}
 
 draw(path: string) -> Result[unit, CairoError] =
-    val surface = imageSurface(Argb32, 120, 120)?
-    val cr = surface.context()?
-    cr.scale(120, 120)
-    cr.setSourceRgb(0, 0, 0)
-    cr.moveTo(0, 0)
-    cr.lineTo(1, 1)
-    cr.moveTo(1, 0)
-    cr.lineTo(0, 1)
-    cr.setLineWidth(0.2)
-    cr.stroke()
-    cr.rectangle(0, 0, 0.5, 0.5)
-    cr.setSourceRgba(1, 0, 0, 0.80)
-    cr.fill()
-    cr.rectangle(0, 0.5, 0.5, 0.5)
-    cr.setSourceRgba(0, 1, 0, 0.60)
-    cr.fill()
-    cr.rectangle(0.5, 0, 0.5, 0.5)
-    cr.setSourceRgba(0, 0, 1, 0.40)
-    cr.fill()
-    cr.status()?
-    surface.writeToPng(path)
+  val surface = imageSurface(Argb32, 120, 120)?
+  val cr = surface.context()?
+  cr.scale(120, 120)
+  cr.setSourceRgb(0, 0, 0)
+  cr.moveTo(0, 0)
+  cr.lineTo(1, 1)
+  cr.moveTo(1, 0)
+  cr.lineTo(0, 1)
+  cr.setLineWidth(0.2)
+  cr.stroke()
+  cr.rectangle(0, 0, 0.5, 0.5)
+  cr.setSourceRgba(1, 0, 0, 0.80)
+  cr.fill()
+  cr.rectangle(0, 0.5, 0.5, 0.5)
+  cr.setSourceRgba(0, 1, 0, 0.60)
+  cr.fill()
+  cr.rectangle(0.5, 0, 0.5, 0.5)
+  cr.setSourceRgba(0, 0, 1, 0.40)
+  cr.fill()
+  cr.status()?
+  surface.writeToPng(path)
 
 main()
-    draw("setsourcergba.png") match
-        Ok(_) -> println("wrote setsourcergba.png")
-        Err(e) -> println(s"cairo: ${e.message}")
+  draw("setsourcergba.png") match
+    Ok(_) -> println("wrote setsourcergba.png")
+    Err(e) -> println(s"cairo: ${e.message}")
 ```
 
 ## What is bound

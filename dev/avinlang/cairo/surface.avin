@@ -15,11 +15,11 @@ import avin.c.{ByteBlock, ByteView, MutByteView}
 // surface holds another, so the surface lives while anything draws on it. A surface made over a block
 // of bytes keeps it by Cairo's own count, so the block lives as long as Cairo's surface does.
 @c(
-  type: "cairo_surface_t *",
-  release: "cairo_surface_destroy",
-  retain: "cairo_surface_reference",
-  attach: "cairo_surface_set_user_data(self, key, data, destroy)",
-  key: "cairo_user_data_key_t"
+    type: "cairo_surface_t *",
+    release: "cairo_surface_destroy",
+    retain: "cairo_surface_reference",
+    attach: "cairo_surface_set_user_data(self, key, data, destroy)",
+    key: "cairo_user_data_key_t"
 )
 class Surface
   @c("cairo_status_t cairo_surface_status(cairo_surface_t *self)")
@@ -102,10 +102,10 @@ class Surface
   flush()
 
   @c(
-    "unsigned char *cairo_image_surface_get_data(cairo_surface_t *self)",
-    view,
-    writable,
-    length: "cairo_image_surface_get_stride(self) * cairo_image_surface_get_height(self)"
+      "unsigned char *cairo_image_surface_get_data(cairo_surface_t *self)",
+      view,
+      writable,
+      length: "cairo_image_surface_get_stride(self) * cairo_image_surface_get_height(self)"
   )
   private dataRaw() -> Option[MutByteView]
 
@@ -217,8 +217,8 @@ imageSurface(format: Format, width: int, height: int) -> Result[Surface, CairoEr
 // Cairo answers a surface it could not make as a surface in error, whose status is what telling it of
 // the block answers: so the binding answers that status as the error, and keeps nothing.
 @c(
-  "cairo_surface_t *cairo_image_surface_create_for_data(unsigned char *pixels, cairo_format_t format, int width, int height, int stride)",
-  keeps: "pixels"
+    "cairo_surface_t *cairo_image_surface_create_for_data(unsigned char *pixels, cairo_format_t format, int width, int height, int stride)",
+    keeps: "pixels"
 )
 private surfaceForData(pixels: ByteBlock, format: Format, width: int, height: int, stride: int) -> Result[Surface, int]
 
@@ -230,11 +230,11 @@ private surfaceForData(pixels: ByteBlock, format: Format, width: int, height: in
 // fewer than `height * stride` bytes is `Err` with `InvalidSize`, and a negative stride, which Cairo
 // would take as rows running back from the block's start, is `Err` with `InvalidStride`.
 imageSurfaceOver(
-  pixels: ByteBlock,
-  format: Format,
-  width: int,
-  height: int,
-  stride: int
+    pixels: ByteBlock,
+    format: Format,
+    width: int,
+    height: int,
+    stride: int
 ) -> Result[Surface, CairoError] =
   if stride < 0 then Err(cairoError(invalidStride))
   else if long(pixels.length) < long(height) * long(stride) then Err(cairoError(invalidSize))

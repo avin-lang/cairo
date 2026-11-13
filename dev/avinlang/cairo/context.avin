@@ -300,7 +300,11 @@ class Context
   dashCount() -> int
 
   // The dash pattern and its offset, as `setDash` set them; an empty pattern for a solid line.
-  @c("void cairo_get_dash(cairo_t *self, out double *dashes, out double *offset)", array: "dashes", length: "cairo_get_dash_count(self)")
+  @c(
+      "void cairo_get_dash(cairo_t *self, out double *dashes, out double *offset)",
+      array: "dashes",
+      length: "cairo_get_dash_count(self)"
+  )
   dash() -> (Array[real], real)
 
   // The transform from user coordinates to the surface's.

@@ -3,6 +3,7 @@ module tests
 // Cairo's enumerations round-tripped through the calls that take and answer them, statuses, the
 // current point, transforms of points and distances, extents, clips and dash patterns.
 import avin.math
+
 import dev.avinlang.cairo.{
   A1,
   A8,
@@ -94,9 +95,35 @@ operators()
   val cr = canvas(4, 4)
   assertEq(cr.operator(), Over)
   val all = [
-    Clear, Source, Over, In, Out, Atop, Dest, DestOver, DestIn, DestOut, DestAtop, Xor, Add, Saturate, Multiply,
-    Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion, HslHue,
-    HslSaturation, HslColor, HslLuminosity
+    Clear,
+    Source,
+    Over,
+    In,
+    Out,
+    Atop,
+    Dest,
+    DestOver,
+    DestIn,
+    DestOut,
+    DestAtop,
+    Xor,
+    Add,
+    Saturate,
+    Multiply,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    HslHue,
+    HslSaturation,
+    HslColor,
+    HslLuminosity
   ]
   assertEq(all.length, 29)
   for op in all
@@ -180,17 +207,51 @@ statuses()
 @test("every status has a description")
 everyStatus()
   val all = [
-    Status.Success, Status.NoMemory, Status.InvalidRestore, Status.InvalidPopGroup, Status.NoCurrentPoint,
-    Status.InvalidMatrix, Status.InvalidStatus, Status.NullPointer, Status.InvalidString, Status.InvalidPathData,
-    Status.ReadError, Status.WriteError, Status.SurfaceFinished, Status.SurfaceTypeMismatch,
-    Status.PatternTypeMismatch, Status.InvalidContent, Status.InvalidFormat, Status.InvalidVisual,
-    Status.FileNotFound, Status.InvalidDash, Status.InvalidDscComment, Status.InvalidIndex,
-    Status.ClipNotRepresentable, Status.TempFileError, Status.InvalidStride, Status.FontTypeMismatch,
-    Status.UserFontImmutable, Status.UserFontError, Status.NegativeCount, Status.InvalidClusters,
-    Status.InvalidSlant, Status.InvalidWeight, Status.InvalidSize, Status.UserFontNotImplemented,
-    Status.DeviceTypeMismatch, Status.DeviceError, Status.InvalidMeshConstruction, Status.DeviceFinished,
-    Status.Jbig2GlobalMissing, Status.PngError, Status.FreetypeError, Status.Win32GdiError, Status.TagError,
-    Status.DwriteError, Status.SvgFontError
+    Status.Success,
+    Status.NoMemory,
+    Status.InvalidRestore,
+    Status.InvalidPopGroup,
+    Status.NoCurrentPoint,
+    Status.InvalidMatrix,
+    Status.InvalidStatus,
+    Status.NullPointer,
+    Status.InvalidString,
+    Status.InvalidPathData,
+    Status.ReadError,
+    Status.WriteError,
+    Status.SurfaceFinished,
+    Status.SurfaceTypeMismatch,
+    Status.PatternTypeMismatch,
+    Status.InvalidContent,
+    Status.InvalidFormat,
+    Status.InvalidVisual,
+    Status.FileNotFound,
+    Status.InvalidDash,
+    Status.InvalidDscComment,
+    Status.InvalidIndex,
+    Status.ClipNotRepresentable,
+    Status.TempFileError,
+    Status.InvalidStride,
+    Status.FontTypeMismatch,
+    Status.UserFontImmutable,
+    Status.UserFontError,
+    Status.NegativeCount,
+    Status.InvalidClusters,
+    Status.InvalidSlant,
+    Status.InvalidWeight,
+    Status.InvalidSize,
+    Status.UserFontNotImplemented,
+    Status.DeviceTypeMismatch,
+    Status.DeviceError,
+    Status.InvalidMeshConstruction,
+    Status.DeviceFinished,
+    Status.Jbig2GlobalMissing,
+    Status.PngError,
+    Status.FreetypeError,
+    Status.Win32GdiError,
+    Status.TagError,
+    Status.DwriteError,
+    Status.SvgFontError
   ]
   assertEq(all.length, 45)
   for s in all

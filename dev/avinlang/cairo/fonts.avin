@@ -164,20 +164,23 @@ class ScaledFont
   scaleMatrix() -> Matrix
 
   @c(
-    "cairo_status_t cairo_scaled_font_text_to_glyphs(cairo_scaled_font_t *self, double x, double y, const char *utf8, int utf8_len, out cairo_glyph_t **glyphs, out int *num_glyphs, null cairo_text_cluster_t **clusters, null int *num_clusters, null cairo_text_cluster_flags_t *cluster_flags)",
-    array: "glyphs",
-    length: "num_glyphs",
-    free: "cairo_glyph_free"
+      "cairo_status_t cairo_scaled_font_text_to_glyphs(cairo_scaled_font_t *self, double x, double y, const char *utf8, int utf8_len, out cairo_glyph_t **glyphs, out int *num_glyphs, null cairo_text_cluster_t **clusters, null int *num_clusters, null cairo_text_cluster_flags_t *cluster_flags)",
+      array: "glyphs",
+      length: "num_glyphs",
+      free: "cairo_glyph_free"
   )
   private glyphsRaw(x: real, y: real, utf8: string, length: int) -> Result[(Array[Glyph], int), int]
 
   @c(
-    "cairo_status_t cairo_scaled_font_text_to_glyphs(cairo_scaled_font_t *self, double x, double y, const char *utf8, int utf8_len, out cairo_glyph_t **glyphs, out int *num_glyphs, out cairo_text_cluster_t **clusters, out int *num_clusters, out cairo_text_cluster_flags_t *cluster_flags)",
-    array: ["glyphs", "clusters"],
-    length: ["num_glyphs", "num_clusters"],
-    free: ["cairo_glyph_free", "cairo_text_cluster_free"]
+      "cairo_status_t cairo_scaled_font_text_to_glyphs(cairo_scaled_font_t *self, double x, double y, const char *utf8, int utf8_len, out cairo_glyph_t **glyphs, out int *num_glyphs, out cairo_text_cluster_t **clusters, out int *num_clusters, out cairo_text_cluster_flags_t *cluster_flags)",
+      array: ["glyphs", "clusters"],
+      length: ["num_glyphs", "num_clusters"],
+      free: ["cairo_glyph_free", "cairo_text_cluster_free"]
   )
-  private clustersRaw(x: real, y: real, utf8: string, length: int) -> Result[(Array[Glyph], int, Array[TextCluster], int, int), int]
+  private clustersRaw(x: real, y: real, utf8: string, length: int) -> Result[
+    (Array[Glyph], int, Array[TextCluster], int, int),
+    int
+  ]
 
   // The glyphs that draw `text` in the font, the first with its origin at `x`, `y` and each after it
   // where the one before advances to, ready for `Context.showGlyphs`. None for empty text; `Err` with

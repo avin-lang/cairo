@@ -3,6 +3,7 @@ module tests
 // An image surface's pixels as a view valid between `flush` and `mark_dirty`, a surface made over a
 // block of bytes it keeps alive, and the reference program's `markdirty.png` and `createfordata.png`.
 import avin.c.{ByteBlock, ByteView, MutByteView}
+
 import dev.avinlang.cairo.{
   A8,
   Argb32,

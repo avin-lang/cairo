@@ -4,30 +4,8 @@ module tests
 // arrays of none, one and many. Text is asserted by relations (wider for a longer string, taller for a
 // larger size) rather than by the pixels of whichever font the system picks.
 import dev.avinlang.cairo.{
-  Antialias,
-  Bgr,
-  Context,
-  FontOptions,
-  Full,
-  Glyph,
-  Gray,
-  HintMetrics,
-  HintStyle,
-  Medium,
-  Off,
-  On,
-  Rgb,
-  Slight,
-  Subpixel,
-  SubpixelOrder,
-  Vbgr,
-  Vrgb,
-  fontOptions,
-  identityMatrix,
-  matrix,
-  scaledFont,
-  scalingMatrix,
-  toyFontFace
+  Antialias, Bgr, Context, FontOptions, Full, Glyph, Gray, HintMetrics, HintStyle, Medium, Off, On, Rgb, Slight,
+  Subpixel, SubpixelOrder, Vbgr, Vrgb, fontOptions, identityMatrix, matrix, scaledFont, scalingMatrix, toyFontFace
 }
 
 private options() -> FontOptions = made(fontOptions())

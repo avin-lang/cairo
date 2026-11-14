@@ -5,18 +5,7 @@ module tests
 import avin.fs
 
 import dev.avinlang.cairo.{
-  A1,
-  A8,
-  Argb32,
-  CairoError,
-  Format,
-  Rgb16565,
-  Rgb24,
-  Rgb30,
-  Rgb96f,
-  Rgba128f,
-  Surface,
-  formatStrideForWidth,
+  A1, A8, Argb32, CairoError, Format, Rgb16565, Rgb24, Rgb30, Rgb96f, Rgba128f, Surface, formatStrideForWidth,
   imageSurface
 }
 

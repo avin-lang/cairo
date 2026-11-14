@@ -6,16 +6,7 @@ import avin.fs
 import avin.math.Pi
 
 import dev.avinlang.cairo.{
-  Argb32,
-  Bold,
-  Context,
-  Italic,
-  Oblique,
-  Regular,
-  Upright,
-  imageSurface,
-  linearGradient,
-  solidRgb
+  Argb32, Bold, Context, Italic, Oblique, Regular, Upright, imageSurface, linearGradient, solidRgb
 }
 
 @test("a new context paints black with lines 2 wide, has no path and is usable")

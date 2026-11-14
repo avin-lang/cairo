@@ -6,24 +6,8 @@ module tests
 import avin.fs
 
 import dev.avinlang.cairo.{
-  Argb32,
-  Author,
-  CreateDate,
-  Creator,
-  Keywords,
-  ModDate,
-  OutlineFlags,
-  Subject,
-  Surface,
-  Title,
-  V14,
-  V15,
-  V16,
-  V17,
-  imageSurface,
-  outlineRoot,
-  pdfSurface,
-  svgSurface
+  Argb32, Author, CreateDate, Creator, Keywords, ModDate, OutlineFlags, Subject, Surface, Title, V14, V15, V16, V17,
+  imageSurface, outlineRoot, pdfSurface, svgSurface
 }
 
 // How many times `part` occurs in `text`.

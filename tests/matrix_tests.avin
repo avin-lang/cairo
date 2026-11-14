@@ -5,17 +5,8 @@ module tests
 import avin.math.Pi
 
 import dev.avinlang.cairo.{
-  Alpha,
-  ColorAlpha,
-  Matrix,
-  Rectangle,
-  identityMatrix,
-  linearGradient,
-  matrix,
-  recordingSurface,
-  rotationMatrix,
-  scalingMatrix,
-  translationMatrix
+  Alpha, ColorAlpha, Matrix, Rectangle, identityMatrix, linearGradient, matrix, recordingSurface, rotationMatrix,
+  scalingMatrix, translationMatrix
 }
 
 // Whether every field of two matrices is within 1e-6 (`near`'s tolerance).

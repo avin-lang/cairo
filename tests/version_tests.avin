@@ -2,18 +2,7 @@ module tests
 
 // The library's version, its error descriptions and the row stride of every pixel format.
 import dev.avinlang.cairo.{
-  A1,
-  A8,
-  Argb32,
-  Format,
-  Rgb16565,
-  Rgb24,
-  Rgb30,
-  Rgb96f,
-  Rgba128f,
-  formatStrideForWidth,
-  version,
-  versionString
+  A1, A8, Argb32, Format, Rgb16565, Rgb24, Rgb30, Rgb96f, Rgba128f, formatStrideForWidth, version, versionString
 }
 
 @test("the version is 1.18 or later, and its number and its text agree")

@@ -5,15 +5,7 @@ module tests
 import avin.c.{ByteBlock, ByteView, MutByteView}
 
 import dev.avinlang.cairo.{
-  A8,
-  Argb32,
-  Context,
-  Rgb24,
-  Surface,
-  formatStrideForWidth,
-  imageSurface,
-  imageSurfaceOver,
-  recordingSurface
+  A8, Argb32, Context, Rgb24, Surface, formatStrideForWidth, imageSurface, imageSurfaceOver, recordingSurface
 }
 
 // The pixel view of a surface the test expects to be an image.

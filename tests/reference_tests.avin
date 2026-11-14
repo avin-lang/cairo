@@ -4,20 +4,8 @@ module tests
 // squares over a black cross, and `tagged.pdf`, a two-page document with metadata, structure tags, an
 // outline and page labels.
 import dev.avinlang.cairo.{
-  Author,
-  Bold,
-  CairoError,
-  CreateDate,
-  Keywords,
-  OutlineFlags,
-  PdfVersion,
-  Regular,
-  Subject,
-  Title,
-  V14,
-  V17,
-  outlineRoot,
-  pdfSurface
+  Author, Bold, CairoError, CreateDate, Keywords, OutlineFlags, PdfVersion, Regular, Subject, Title, V14, V17,
+  outlineRoot, pdfSurface
 }
 
 // The reference program's `setsourcergba.png`, written to `path`.
